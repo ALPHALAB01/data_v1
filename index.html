@@ -152,7 +152,7 @@
   <!-- ===== PAGE 1: 입력 ===== -->
   <section class="page active" id="page-input">
     <h1 class="ptitle">데이터 입력</h1>
-    <p class="psub">한 번 입력하면 실적 데이터베이스에 저장되고, '연혁으로 지정'을 체크하면 연혁 데이터베이스에도 함께 등록됩니다.</p>
+    <p class="psub">한 번 입력하면 연혁 데이터베이스와 실적 데이터베이스 양쪽에 저장됩니다. (시기 형식만 다름: 연혁 YY.MM / 실적 YY.MM.DD~)</p>
     <div class="card">
       <div class="row2">
         <div>
@@ -191,7 +191,7 @@
 
       <label class="check-wrap">
         <input type="checkbox" id="in-default">
-        <span><b>연혁으로 지정</b> — 체크하면 연혁 데이터베이스에도 등록되어, '연혁 포함' 필터 시 항상 표시됩니다.</span>
+        <span><b>연혁으로 지정 (기본 연혁)</b> — 체크하면 연혁 데이터베이스에서 '기본 포함'을 켰을 때 검색과 무관하게 항상 표시됩니다.</span>
       </label>
 
       <div class="btn-row">
@@ -204,7 +204,7 @@
   <!-- ===== PAGE 2: 연혁 데이터베이스 ===== -->
   <section class="page" id="page-history">
     <h1 class="ptitle">연혁 데이터베이스</h1>
-    <p class="psub">시기는 <b>YY.MM</b> 형식으로 표시됩니다. '연혁으로 지정'된 항목은 '연혁 포함'을 켜면 검색과 무관하게 항상 표시됩니다.</p>
+    <p class="psub">실적 데이터베이스와 같은 데이터를 시기 <b>YY.MM</b> 형식으로 봅니다. '연혁으로 지정(기본 연혁)'된 항목은 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.</p>
     <div class="card">
       <div class="toolbar">
         <input class="search" id="h-search" placeholder="시기·내용·키워드 검색...">
@@ -215,7 +215,7 @@
           <option value="year_asc">연도순 (오래된)</option>
         </select>
         <span class="count" id="h-count">불러오는 중...</span>
-        <label class="filter-check"><input type="checkbox" id="h-include-default"> 연혁 포함</label>
+        <label class="filter-check"><input type="checkbox" id="h-include-default"> 기본 포함</label>
         <button class="btn ghost sm" id="h-paren-btn">괄호 추가</button>
         <button class="btn sm" id="h-copy-btn">복사하기</button>
         <button class="btn ghost sm" id="h-refresh-btn">새로고침</button>
@@ -387,7 +387,7 @@ $('#save-btn').addEventListener('click',async()=>{
     cache.unshift(data.item);
     ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
     $('#in-default').checked=false; $('#kw-preview').innerHTML=''; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
-    toast(data.item.is_default?'저장됨 (연혁+실적)':'저장됨 (실적)');
+    toast(data.item.is_default?'저장됨 (기본 연혁으로 지정)':'저장되었습니다');
   }catch(e){ toast('저장 실패: '+e.message,true); }
   finally{ btn.disabled=false; }
 });
@@ -419,10 +419,10 @@ function renderHistory(){
   const matchSearch=r=> !q ||
     ymOf(r.time).includes(q) || (r.content||'').toLowerCase().includes(q) || (r.keywords||'').toLowerCase().includes(q);
 
-  // 연혁 DB = is_default(연혁 지정)된 것만
-  let rows=cache.filter(r=>r.is_default);
-  let filtered=rows.filter(r=>{
-    if(includeDefault) return true; // 연혁 포함: 검색 무관 전부
+  // 연혁 DB = 전체 항목 표시 (실적 DB와 동일한 데이터, 시기 형식만 YY.MM)
+  let filtered=cache.filter(r=>{
+    // '기본 포함'이 켜져 있으면 연혁 지정(is_default) 항목은 검색과 무관하게 항상 표시
+    if(includeDefault && r.is_default) return true;
     return matchSearch(r);
   });
   applySort(filtered, $('#h-sort').value, r=>ymOf(r.time));
@@ -430,7 +430,7 @@ function renderHistory(){
 
   $('#h-count').textContent=filtered.length+'건';
   const wrap=$('#h-table-wrap');
-  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${rows.length===0?"연혁으로 지정된 항목이 없습니다. 입력 시 '연혁으로 지정'을 체크하세요.":"검색 결과가 없습니다."}</div>`; return; }
+  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?"저장된 데이터가 없습니다. 입력 페이지에서 등록하세요.":"검색 결과가 없습니다."}</div>`; return; }
 
   let html='<table><thead><tr><th style="width:80px">시기</th><th>내용</th><th style="width:200px">키워드</th><th style="width:70px"></th></tr></thead><tbody>';
   filtered.forEach(r=>{
@@ -439,13 +439,13 @@ function renderHistory(){
         <input class="he-time" value="${esc(r.time)}" placeholder="시기 시작">
         <textarea class="he-content" style="min-height:50px">${esc(r.content)}</textarea>
         <input class="he-kw" value="${esc(r.keywords)}" placeholder="키워드 (띄어쓰기)">
-        <label class="filter-check"><input type="checkbox" class="he-default" checked> 연혁으로 지정 (해제 시 연혁 DB에서 제외)</label>
+        <label class="filter-check"><input type="checkbox" class="he-default" ${r.is_default?'checked':''}> 연혁으로 지정 (기본 연혁 — '기본 포함' 시 항상 표시)</label>
         <div class="row-actions"><button class="btn sm he-save">저장</button><button class="btn ghost sm he-cancel">취소</button></div>
       </div></td></tr>`;
     }else{
-      html+=`<tr data-id="${r.id}" class="is-default">
+      html+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''}">
         <td class="time-cell">${esc(ymOf(r.time))||'-'}</td>
-        <td><span class="badge">연혁</span>${esc(r.content)}</td>
+        <td>${r.is_default?'<span class="badge">연혁</span>':''}${esc(r.content)}</td>
         <td><div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div></td>
         <td><div class="row-actions">
           <button class="icon-btn edit h-edit" title="수정">✎</button>
