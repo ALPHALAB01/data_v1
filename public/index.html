@@ -81,6 +81,12 @@
   .filter-label { font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap; }
   .filter-suffix { font-size: 12.5px; color: var(--ink-dim); white-space: nowrap; }
   .filter-input { width: 130px; padding: 8px 10px; font-size: 13px; }
+  .copycols-panel { display: none; margin-bottom: 16px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+  .copycols-panel.show { display: block; }
+  .copycols-title { font-size: 12.5px; font-weight: 600; color: var(--accent); margin-right: 14px; }
+  .copycols-list { display: inline-flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+  .copycols-list label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 400; color: var(--ink); cursor: pointer; }
+  .copycols-list input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
   .search { flex: 1; min-width: 180px; }
   .count { font-size: 13px; color: var(--ink-dim); }
 
@@ -244,7 +250,12 @@
         </select>
         <span class="count" id="p-count">불러오는 중...</span>
         <button class="btn ghost sm" id="p-colreset-btn">열 순서 초기화</button>
+        <button class="btn ghost sm" id="p-copycols-btn">복사 열 선택</button>
         <button class="btn sm" id="p-copy-btn">복사하기</button>
+      </div>
+      <div class="copycols-panel" id="p-copycols-panel">
+        <span class="copycols-title">복사에 포함할 열</span>
+        <div class="copycols-list" id="p-copycols-list"></div>
       </div>
       <div class="filter-bar">
         <div class="filter-item">
@@ -707,7 +718,37 @@ $('#p-colreset-btn').addEventListener('click',()=>{
   pColOrder=[...DEFAULT_COL_ORDER]; saveColOrder(pColOrder); renderPerf(); toast('열 순서를 초기화했습니다');
 });
 
-/* 실적 DB 복사: 현재 보이는 순서 + 현재 열 순서 그대로 */
+/* 복사에 포함할 열 (true면 포함) — 브라우저에 저장 */
+function loadCopyCols(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('perf_copy_cols')||'null');
+    if(saved && typeof saved==='object'){
+      const out={};
+      DEFAULT_COL_ORDER.forEach(k=>{ out[k] = saved[k]!==false; }); // 기본 포함
+      return out;
+    }
+  }catch(e){}
+  const out={}; DEFAULT_COL_ORDER.forEach(k=>out[k]=true); return out;
+}
+function saveCopyCols(){ try{ localStorage.setItem('perf_copy_cols', JSON.stringify(pCopyCols)); }catch(e){} }
+let pCopyCols=loadCopyCols();
+
+function renderCopyColsPanel(){
+  const list=$('#p-copycols-list');
+  list.innerHTML=DEFAULT_COL_ORDER.map(k=>
+    `<label><input type="checkbox" data-col="${k}" ${pCopyCols[k]?'checked':''}> ${PERF_COLS[k].label}</label>`
+  ).join('');
+  list.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',e=>{
+    pCopyCols[e.target.dataset.col]=e.target.checked; saveCopyCols();
+  }));
+}
+$('#p-copycols-btn').addEventListener('click',()=>{
+  const panel=$('#p-copycols-panel');
+  panel.classList.toggle('show');
+  if(panel.classList.contains('show')) renderCopyColsPanel();
+});
+
+/* 실적 DB 복사: 현재 보이는 순서 + 현재 열 순서, 단 복사 포함으로 켠 열만 */
 function perfPlain(r, key){
   switch(key){
     case 'time': return perfTimeLabel(r);
@@ -721,7 +762,8 @@ function perfPlain(r, key){
 }
 $('#p-copy-btn').addEventListener('click',()=>{
   if(!pVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
-  const cols=pColOrder;
+  const cols=pColOrder.filter(k=>pCopyCols[k]);   // 켠 열만, 현재 순서대로
+  if(!cols.length){ toast('복사할 열이 없습니다. 복사 열 선택을 확인하세요.',true); return; }
   const clean=v=>String(v).replace(/[\t\n\r]+/g,' ').trim();
   const matrix=pVisible.map(r=>cols.map(k=>clean(perfPlain(r,k))));
   const text=matrix.map(row=>row.join('\t')).join('\n');
