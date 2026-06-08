@@ -332,7 +332,17 @@ function sendToSheet(payload){
 
 function toast(msg, isErr) { const t=$('#toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':''); setTimeout(()=>t.className='toast',1900); }
 function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function kwArray(str){ return (str||'').split(/\s+/).filter(Boolean); }
+function kwArray(str){ return (str||'').split(/\s+/).filter(Boolean).sort((a,b)=>a.localeCompare(b,'ko')); }
+
+// OR 검색: 검색어를 단어로 나눠 하나라도 포함되면 매치.
+// fields: 대상 문자열들의 배열. q: 소문자 검색어.
+function matchOR(q, fields){
+  if(!q) return true;
+  const hay=fields.map(f=>(f||'').toLowerCase());
+  const terms=q.split(/\s+/).filter(Boolean);
+  if(!terms.length) return true;
+  return terms.some(t => hay.some(h => h.includes(t)));
+}
 
 // 화면 미리보기용 변환 (서버 _lib.js와 동일 규칙)
 function toYMD(raw){
@@ -502,8 +512,7 @@ function applySort(arr, sortBy, useTime){
 function renderHistory(){
   const q=$('#h-search').value.toLowerCase();
   const includeDefault=$('#h-include-default').checked;
-  const matchSearch=r=> !q ||
-    ymOf(r.time).includes(q) || (r.content||'').toLowerCase().includes(q) || (r.keywords||'').toLowerCase().includes(q);
+  const matchSearch=r=> matchOR(q, [ymOf(r.time), r.content, r.keywords]);
 
   // 연혁 DB = 전체 항목 표시 (실적 DB와 동일한 데이터, 시기 형식만 YY.MM)
   let filtered=cache.filter(r=>{
@@ -607,10 +616,7 @@ let pColOrder=loadColOrder();
 function renderPerf(){
   const q=$('#p-search').value.toLowerCase();
   const sortBy=$('#p-sort').value;
-  const matchSearch=r=> !q ||
-    perfTimeLabel(r).toLowerCase().includes(q) || (r.content||'').toLowerCase().includes(q) ||
-    (r.keywords||'').toLowerCase().includes(q) || (r.detail||'').toLowerCase().includes(q) ||
-    (r.amount||'').toLowerCase().includes(q) || (r.client||'').toLowerCase().includes(q);
+  const matchSearch=r=> matchOR(q, [perfTimeLabel(r), r.content, r.keywords, r.detail, r.amount, r.client]);
 
   // 금액 필터: 입력값은 '만원' 단위 → 원으로 환산
   const minManRaw=$('#p-min-amount').value.trim();
