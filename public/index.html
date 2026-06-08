@@ -303,6 +303,22 @@
 <script>
 /* ============ helpers ============ */
 const $ = s => document.querySelector(s);
+
+/* ===== 구글 스프레드시트 연동 =====
+   아래 GSHEET_URL 에 Apps Script 웹앱 URL을 붙여넣으면,
+   저장할 때마다 시트에도 새 행이 추가됩니다.
+   비워두면('') 연동 기능이 꺼집니다. */
+const GSHEET_URL = '';
+function sendToSheet(payload){
+  if(!GSHEET_URL) return;
+  // no-cors로 보내고 결과는 신경 쓰지 않음(실패해도 메인 저장에 영향 없음)
+  fetch(GSHEET_URL, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  }).catch(()=>{});
+}
+
 function toast(msg, isErr) { const t=$('#toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':''); setTimeout(()=>t.className='toast',1900); }
 function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function kwArray(str){ return (str||'').split(/\s+/).filter(Boolean); }
@@ -442,6 +458,8 @@ $('#save-btn').addEventListener('click',async()=>{
     const data=await res.json();
     if(!data.ok) throw new Error(data.error||'저장 실패');
     cache.unshift(data.item);
+    // 구글 시트에도 새 행 추가 (설정된 경우)
+    sendToSheet(data.item);
     ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
     $('#in-default').checked=false; $('#kw-preview').innerHTML=''; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
     toast(data.item.is_default?'저장됨 (기본 연혁으로 지정)':'저장되었습니다');
@@ -704,8 +722,11 @@ function perfPlain(r, key){
 $('#p-copy-btn').addEventListener('click',()=>{
   if(!pVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
   const cols=pColOrder;
+  // 탭(\t)으로 구분 → 엑셀·구글시트·한글 표에 붙여넣으면 각 셀에 하나씩 들어감.
+  // 빈 값도 빈 셀로 유지해야 열이 어긋나지 않음. 셀 안 탭/줄바꿈은 공백 처리.
+  const clean=v=>String(v).replace(/[\t\n\r]+/g,' ').trim();
   const text=pVisible.map(r=>
-    cols.map(k=>perfPlain(r,k)).filter(v=>v!=='').join('  |  ')
+    cols.map(k=>clean(perfPlain(r,k))).join('\t')
   ).join('\n');
   copyText(text, $('#p-copy-btn'), `${pVisible.length}건 복사됨 ✓`, '복사하기');
 });
