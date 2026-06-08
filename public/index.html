@@ -244,6 +244,7 @@
         </select>
         <span class="count" id="p-count">불러오는 중...</span>
         <button class="btn ghost sm" id="p-colreset-btn">열 순서 초기화</button>
+        <button class="btn sm" id="p-copy-btn">복사하기</button>
       </div>
       <div class="filter-bar">
         <div class="filter-item">
@@ -686,6 +687,27 @@ function setupColDrag(wrap){
 }
 $('#p-colreset-btn').addEventListener('click',()=>{
   pColOrder=[...DEFAULT_COL_ORDER]; saveColOrder(pColOrder); renderPerf(); toast('열 순서를 초기화했습니다');
+});
+
+/* 실적 DB 복사: 현재 보이는 순서 + 현재 열 순서 그대로 */
+function perfPlain(r, key){
+  switch(key){
+    case 'time': return perfTimeLabel(r);
+    case 'content': return r.content||'';
+    case 'detail': return (r.detail||'').replace(/\n/g,' ');
+    case 'keywords': return kwArray(r.keywords).join(', ');
+    case 'amount': return r.amount||'';
+    case 'client': return r.client||'';
+    default: return '';
+  }
+}
+$('#p-copy-btn').addEventListener('click',()=>{
+  if(!pVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
+  const cols=pColOrder;
+  const text=pVisible.map(r=>
+    cols.map(k=>perfPlain(r,k)).filter(v=>v!=='').join('  |  ')
+  ).join('\n');
+  copyText(text, $('#p-copy-btn'), `${pVisible.length}건 복사됨 ✓`, '복사하기');
 });
 
 /* ============ 공용 수정/삭제 ============ */
