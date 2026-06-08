@@ -7,4 +7,4 @@ pages_build_output_dir = "public"
 [[d1_databases]]
 binding = "DB"
 database_name = "proposal-matcher-db"
-database_id = "여기에_DATABASE_ID_붙여넣기"
+database_id = "7845f8c8-262c-49f1-9461-77b08b7ac951"
