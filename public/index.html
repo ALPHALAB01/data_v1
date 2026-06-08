@@ -76,6 +76,11 @@
   .sort-select:focus { outline: none; border-color: var(--accent); }
   .filter-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); cursor: pointer; white-space: nowrap; }
   .filter-check input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .filter-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+  .filter-item { display: flex; align-items: center; gap: 8px; }
+  .filter-label { font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .filter-suffix { font-size: 12.5px; color: var(--ink-dim); white-space: nowrap; }
+  .filter-input { width: 130px; padding: 8px 10px; font-size: 13px; }
   .search { flex: 1; min-width: 180px; }
   .count { font-size: 13px; color: var(--ink-dim); }
 
@@ -185,7 +190,7 @@
         </div>
         <div>
           <label>발주처 <span class="hint">선택</span></label>
-          <input id="in-client" placeholder="○○부">
+          <input id="in-client" placeholder="ex.서울신용보증재단">
         </div>
       </div>
 
@@ -239,7 +244,19 @@
         </select>
         <span class="count" id="p-count">불러오는 중...</span>
         <button class="btn ghost sm" id="p-colreset-btn">열 순서 초기화</button>
-        <button class="btn ghost sm" id="p-refresh-btn">새로고침</button>
+      </div>
+      <div class="filter-bar">
+        <div class="filter-item">
+          <span class="filter-label">계약금액</span>
+          <input id="p-min-amount" class="filter-input" placeholder="예: 8000 (만원)">
+          <span class="filter-suffix">만원 이상</span>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">시기</span>
+          <input id="p-min-time" class="filter-input" placeholder="예: 2024.06">
+          <span class="filter-suffix">이후</span>
+        </div>
+        <button class="btn ghost sm" id="p-filter-reset">필터 해제</button>
       </div>
       <div class="note" id="p-col-note" style="margin-top:0;margin-bottom:16px">열 머리를 좌우로 드래그해 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.</div>
       <div id="p-table-wrap" style="overflow-x:auto"><div class="empty">불러오는 중...</div></div>
@@ -328,6 +345,45 @@ function timeKey(t){
   let yy=parseInt(m[1],10);
   const full=yy<=68?2000+yy:1900+yy;
   return full*10000 + parseInt(m[2],10)*100 + (m[3]?parseInt(m[3],10):0);
+}
+// 계약금액 텍스트에서 숫자(원 단위) 추출.
+// "350,000,000원", "8000만", "8천만", "3억5천만", "3.5억" 등 지원
+function amountToWon(text){
+  if(!text) return null;
+  let s=String(text).replace(/,/g,'').replace(/원/g,'').trim();
+  if(!s) return null;
+
+  // 한글 단위가 하나라도 있으면 단위 파싱 모드
+  if(/[억천만백]/.test(s)){
+    let won=0;
+    // 억
+    const eok=s.match(/(\d+(?:\.\d+)?)\s*억/);
+    if(eok) won+=parseFloat(eok[1])*1e8;
+    // 억 뒤 나머지에서 천만/만 처리 (예: 3억5천만, 3억5000만)
+    // "천만" (예: 8천만 = 8*1000만 = 8000만 = 8e7)
+    const cheonman=s.match(/(\d+(?:\.\d+)?)\s*천\s*만/);
+    if(cheonman) won+=parseFloat(cheonman[1])*1e3*1e4;
+    // "천" 단독(만 앞이 아닌) 은 천원 단위로 잘 안 쓰므로 생략
+    // "만" (천만에서 이미 처리된 경우 제외)
+    if(!cheonman){
+      const man=s.match(/(\d+(?:\.\d+)?)\s*만/);
+      if(man) won+=parseFloat(man[1])*1e4;
+    }
+    // 백만
+    const baekman=s.match(/(\d+(?:\.\d+)?)\s*백\s*만/);
+    if(baekman) won+=parseFloat(baekman[1])*1e6;
+    return won>0?Math.round(won):null;
+  }
+
+  // 단위 없으면 숫자 전체를 원으로
+  const digits=s.replace(/[^\d.]/g,'');
+  if(!digits) return null;
+  return Math.round(parseFloat(digits));
+}
+// 사용자가 친 필터 시기(예: 2024.06)를 timeKey 비교용으로
+function filterTimeKey(raw){
+  const ymd=toYMD(raw);
+  return ymd?timeKey(ymd):-1;
 }
 
 /* ============ nav ============ */
@@ -526,13 +582,31 @@ function renderPerf(){
     (r.keywords||'').toLowerCase().includes(q) || (r.detail||'').toLowerCase().includes(q) ||
     (r.amount||'').toLowerCase().includes(q) || (r.client||'').toLowerCase().includes(q);
 
-  let filtered=cache.filter(matchSearch);
+  // 금액 필터: 입력값은 '만원' 단위 → 원으로 환산
+  const minManRaw=$('#p-min-amount').value.trim();
+  const minWon = minManRaw ? (parseFloat(minManRaw.replace(/[^\d.]/g,''))||0)*1e4 : null;
+  // 시기 필터: 이 시기 이후(같거나 큰)
+  const minTimeRaw=$('#p-min-time').value.trim();
+  const minTK = minTimeRaw ? filterTimeKey(minTimeRaw) : null;
+
+  let filtered=cache.filter(r=>{
+    if(!matchSearch(r)) return false;
+    if(minWon!==null){
+      const won=amountToWon(r.amount);
+      if(won===null || won<minWon) return false;   // 금액 없거나 미만이면 제외
+    }
+    if(minTK!==null && minTK>0){
+      if(timeKey(r.time) < minTK) return false;     // 기준 시기보다 과거면 제외
+    }
+    return true;
+  });
   applySort(filtered, sortBy, r=>r.time);
   pVisible=filtered;
 
-  $('#p-count').textContent=filtered.length+'건';
+  const activeFilter = (minWon!==null) || (minTK!==null && minTK>0);
+  $('#p-count').textContent = filtered.length+'건' + (activeFilter?' (필터 적용됨)':'');
   const wrap=$('#p-table-wrap');
-  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'검색 결과가 없습니다.'}</div>`; return; }
+  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'조건에 맞는 실적이 없습니다.'}</div>`; return; }
 
   const cols=pColOrder;
   const colCount=cols.length+1; // +액션열
@@ -653,7 +727,11 @@ $('#h-include-default').addEventListener('change',renderHistory);
 $('#h-refresh-btn').addEventListener('click',loadDB);
 $('#p-search').addEventListener('input',renderPerf);
 $('#p-sort').addEventListener('change',renderPerf);
-$('#p-refresh-btn').addEventListener('click',loadDB);
+$('#p-min-amount').addEventListener('input',renderPerf);
+$('#p-min-time').addEventListener('input',renderPerf);
+$('#p-filter-reset').addEventListener('click',()=>{
+  $('#p-min-amount').value=''; $('#p-min-time').value=''; renderPerf();
+});
 
 /* ============ Page 4: 매칭 프롬프트 ============ */
 $('#gen-prompt-btn').addEventListener('click',async()=>{
