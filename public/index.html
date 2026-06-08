@@ -202,7 +202,7 @@
 
       <label class="check-wrap">
         <input type="checkbox" id="in-default">
-        <span><b>연혁으로 지정 (기본 연혁)</b> — 체크하면 연혁 데이터베이스에서 '기본 포함'을 켰을 때 검색과 무관하게 항상 표시됩니다.</span>
+        <span><b>연혁으로 지정 (기본 연혁)</b> — 체크하면 연혁 데이터베이스에만 등록되고 실적 데이터베이스에는 표시되지 않습니다. (연혁 DB에서 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.)</span>
       </label>
 
       <div class="btn-row">
@@ -238,7 +238,7 @@
   <!-- ===== PAGE 3: 실적 데이터베이스 ===== -->
   <section class="page" id="page-perf">
     <h1 class="ptitle">실적 데이터베이스</h1>
-    <p class="psub">시기는 <b>YY.MM.DD~YY.MM.DD</b> 형식입니다. 표의 <b>열 머리(헤더)를 드래그</b>하면 열 순서를 바꿀 수 있습니다.</p>
+    <p class="psub">시기는 <b>YY.MM.DD~YY.MM.DD</b> 형식입니다. ('기본 연혁'으로 지정한 항목은 연혁 데이터베이스에만 표시되고 여기에는 나타나지 않습니다.) 표의 <b>열 머리(헤더)를 드래그</b>하면 열 순서를 바꿀 수 있습니다.</p>
     <div class="card">
       <div class="toolbar">
         <input class="search" id="p-search" placeholder="검색...">
@@ -620,6 +620,7 @@ function renderPerf(){
   const minTK = minTimeRaw ? filterTimeKey(minTimeRaw) : null;
 
   let filtered=cache.filter(r=>{
+    if(r.is_default) return false;   // 기본 연혁은 연혁 DB 전용 → 실적 DB에서 제외
     if(!matchSearch(r)) return false;
     if(minWon!==null){
       const won=amountToWon(r.amount);
