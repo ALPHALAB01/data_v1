@@ -722,13 +722,11 @@ function perfPlain(r, key){
 $('#p-copy-btn').addEventListener('click',()=>{
   if(!pVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
   const cols=pColOrder;
-  // 탭(\t)으로 구분 → 엑셀·구글시트·한글 표에 붙여넣으면 각 셀에 하나씩 들어감.
-  // 빈 값도 빈 셀로 유지해야 열이 어긋나지 않음. 셀 안 탭/줄바꿈은 공백 처리.
   const clean=v=>String(v).replace(/[\t\n\r]+/g,' ').trim();
-  const text=pVisible.map(r=>
-    cols.map(k=>clean(perfPlain(r,k))).join('\t')
-  ).join('\n');
-  copyText(text, $('#p-copy-btn'), `${pVisible.length}건 복사됨 ✓`, '복사하기');
+  const matrix=pVisible.map(r=>cols.map(k=>clean(perfPlain(r,k))));
+  const text=matrix.map(row=>row.join('\t')).join('\n');
+  const html=rowsToHtmlTable(matrix);
+  copyText(text, $('#p-copy-btn'), `${pVisible.length}건 복사됨 ✓`, '복사하기', html);
 });
 
 /* ============ 공용 수정/삭제 ============ */
@@ -756,11 +754,35 @@ async function delItem(id){
 }
 
 /* ============ 공용 복사 ============ */
-function copyText(text, btn, doneLabel, origLabel){
+function copyText(text, btn, doneLabel, origLabel, html){
   const done=()=>{ btn.textContent=doneLabel; btn.style.background='var(--green)'; setTimeout(()=>{ btn.textContent=origLabel; btn.style.background=''; },1800); };
-  navigator.clipboard.writeText(text).then(done).catch(()=>{
+  const plainFallback=()=>{
     const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
-  });
+  };
+  // HTML 표가 함께 주어지면 text/plain + text/html 둘 다 클립보드에 담음
+  // (한글·엑셀·구글시트가 '표'로 인식하여 셀에 나눠 붙여넣음)
+  if(html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{
+      const item=new ClipboardItem({
+        'text/plain': new Blob([text], {type:'text/plain'}),
+        'text/html': new Blob([html], {type:'text/html'})
+      });
+      navigator.clipboard.write([item]).then(done).catch(()=>{
+        navigator.clipboard.writeText(text).then(done).catch(plainFallback);
+      });
+      return;
+    }catch(e){ /* 아래로 폴백 */ }
+  }
+  navigator.clipboard.writeText(text).then(done).catch(plainFallback);
+}
+
+// 행 배열을 HTML 표로 (각 행은 셀 값 배열)
+function rowsToHtmlTable(rows){
+  const e=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const body=rows.map(cells=>
+    '<tr>'+cells.map(c=>`<td>${e(c)}</td>`).join('')+'</tr>'
+  ).join('');
+  return `<table border="1" cellspacing="0" cellpadding="4">${body}</table>`;
 }
 
 /* search/sort listeners */
