@@ -294,6 +294,18 @@
         </div>
         <button class="btn ghost sm" id="p-filter-reset">필터 해제</button>
       </div>
+      <div class="filter-bar" id="p-exclude-bar">
+        <div class="filter-item" style="align-items:flex-start">
+          <span class="filter-label" style="margin-top:6px">제외 키워드</span>
+          <div style="flex:1">
+            <div class="kw-box" id="px-box" style="margin-bottom:8px">
+              <span id="px-tags"></span><input id="px-input" placeholder="제외할 키워드 검색/선택..." autocomplete="off">
+            </div>
+            <div class="kw-pool" id="px-pool" style="max-height:120px"></div>
+            <div class="filter-suffix" style="margin-top:6px">선택한 키워드만 가진 데이터는 숨겨집니다. (남는 키워드가 있으면 계속 표시)</div>
+          </div>
+        </div>
+      </div>
       <div class="note" id="p-col-note" style="margin-top:0;margin-bottom:16px">열 머리를 좌우로 드래그해 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.</div>
       <div id="p-table-wrap" style="overflow-x:auto"><div class="empty">불러오는 중...</div></div>
     </div>
@@ -477,6 +489,7 @@ async function loadDB(){
   }catch(e){ console.error(e); }
   renderHistory(); renderPerf();
   if(typeof renderKwPool==='function') renderKwPool();
+  if(typeof renderPxPool==='function') renderPxPool();
 }
 
 /* ============ Page 1: 입력 ============ */
@@ -776,6 +789,7 @@ $('#h-copy-btn').addEventListener('click',()=>{
 let pVisible=[];
 let pEditingId=null;
 let pExpanded=new Set();  // 내용 클릭으로 숨긴 열을 펼친 행 id
+let excludeKw=[];         // 실적 DB 제외 키워드 필터
 
 // 열 정의: key + 표시명 + 셀 렌더 함수
 const PERF_COLS={
@@ -821,12 +835,20 @@ function renderPerf(){
     if(minTK!==null && minTK>0){
       if(timeKey(r.time) < minTK) return false;     // 기준 시기보다 과거면 제외
     }
+    // 제외 키워드: 데이터의 키워드가 전부 제외 집합에 속하면 숨김 (남는 키워드 있으면 표시)
+    if(excludeKw.length){
+      const ks=kwArray(r.keywords);
+      if(ks.length){
+        const remaining=ks.filter(k=>!excludeKw.includes(k));
+        if(remaining.length===0) return false;
+      }
+    }
     return true;
   });
   applySort(filtered, sortBy, r=>r.time);
   pVisible=filtered;
 
-  const activeFilter = (minWon!==null) || (minTK!==null && minTK>0);
+  const activeFilter = (minWon!==null) || (minTK!==null && minTK>0) || excludeKw.length>0;
   $('#p-count').textContent = filtered.length+'건' + (activeFilter?' (필터 적용됨)':'');
   const wrap=$('#p-table-wrap');
   if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'조건에 맞는 실적이 없습니다.'}</div>`; return; }
@@ -1081,7 +1103,72 @@ $('#p-sort').addEventListener('change',renderPerf);
 $('#p-min-amount').addEventListener('input',renderPerf);
 $('#p-min-time').addEventListener('input',renderPerf);
 $('#p-filter-reset').addEventListener('click',()=>{
-  $('#p-min-amount').value=''; $('#p-min-time').value=''; renderPerf();
+  $('#p-min-amount').value=''; $('#p-min-time').value='';
+  excludeKw=[]; $('#px-input').value=''; renderPxTags(); renderPxPool();
+  renderPerf();
+});
+
+/* 제외 키워드 필터 (실적 DB) */
+function perfKeywords(){
+  // 실적(기본 연혁 아님) 데이터에 쓰인 키워드만, 빈도순
+  const freq=new Map();
+  cache.forEach(r=>{ if(!r.is_default) kwArray(r.keywords).forEach(k=>freq.set(k,(freq.get(k)||0)+1)); });
+  return [...freq.keys()].sort((a,b)=>{
+    const d=(freq.get(b)||0)-(freq.get(a)||0);
+    return d!==0 ? d : a.localeCompare(b,'ko');
+  });
+}
+function renderPxTags(){
+  $('#px-tags').innerHTML=excludeKw.map(k=>
+    `<span class="kw-tag" data-kw="${esc(k)}">${esc(k)}<span class="x" title="제거">✕</span></span>`
+  ).join('');
+  $('#px-tags').querySelectorAll('.x').forEach(x=>x.addEventListener('click',e=>{
+    e.stopPropagation();
+    const k=e.target.closest('.kw-tag').dataset.kw;
+    excludeKw=excludeKw.filter(v=>v!==k);
+    renderPxTags(); renderPxPool(); renderPerf();
+  }));
+}
+function renderPxPool(){
+  const qraw=$('#px-input').value.trim();
+  const q=qraw.toLowerCase();
+  let list=perfKeywords();
+  if(q){
+    const choMode=isAllChoseong(qraw);
+    list=list.filter(k=>{
+      const kl=k.toLowerCase();
+      if(kl.includes(q)) return true;
+      if(choMode) return toChoseong(k).startsWith(qraw);
+      return false;
+    });
+  }
+  const pool=$('#px-pool');
+  pool.innerHTML=list.map(k=>{
+    const sel=excludeKw.includes(k);
+    return `<span class="kw-chip ${sel?'selected':''}" data-kw="${esc(k)}">${esc(k)}</span>`;
+  }).join('');
+  pool.querySelectorAll('.kw-chip').forEach(ch=>ch.addEventListener('click',()=>{
+    const k=ch.dataset.kw;
+    if(excludeKw.includes(k)) excludeKw=excludeKw.filter(v=>v!==k);
+    else excludeKw.push(k);
+    $('#px-input').value='';
+    renderPxTags(); renderPxPool(); renderPerf();
+    $('#px-input').focus();
+  }));
+}
+$('#px-box').addEventListener('click',()=>$('#px-input').focus());
+$('#px-input').addEventListener('input',renderPxPool);
+$('#px-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const q=$('#px-input').value.trim();
+    if(!q) return;
+    const exact=perfKeywords().find(k=>k.toLowerCase()===q.toLowerCase());
+    if(exact && !excludeKw.includes(exact)) excludeKw.push(exact);
+    $('#px-input').value=''; renderPxTags(); renderPxPool(); renderPerf();
+  }else if(e.key==='Backspace' && !$('#px-input').value && excludeKw.length){
+    excludeKw.pop(); renderPxTags(); renderPxPool(); renderPerf();
+  }
 });
 
 /* ============ Page 4: 매칭 프롬프트 ============ */
