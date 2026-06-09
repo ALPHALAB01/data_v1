@@ -123,9 +123,9 @@
   .eye-btn:hover { background: var(--panel-2); }
   tr.row-hidden td { opacity: .32; }
   tr.row-hidden .eye-btn { opacity: 1; }
-  tr.sum-row td { border-top: 2px solid var(--accent); background: var(--panel-2); font-size: 13.5px; color: var(--accent); padding-top: 12px; padding-bottom: 12px; }
+  tr.sum-row td { border-top: 2px solid var(--accent); background: var(--panel-2); font-size: 13.5px; color: var(--accent); padding-top: 12px; padding-bottom: 12px; white-space: nowrap; }
   tr.sum-row td b { color: var(--accent); }
-  tr.sum-row .sum-kor { font-size: 11.5px; font-weight: 400; color: var(--ink-dim); margin-top: 3px; }
+  tr.sum-row .sum-kor { font-size: 11.5px; font-weight: 400; color: var(--ink-dim); margin-top: 3px; white-space: nowrap; }
   .expand-mark { color: var(--ink-dim); font-size: 11px; }
   .detail-row td { background: rgba(212,168,87,.05); }
   .detail-box { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 2px; }
@@ -436,17 +436,18 @@ function timeKey(t){
 // "350,000,000원", "8000만", "8천만", "3억5천만", "3.5억" 등 지원
 // 숫자를 천단위 쉼표 문자열로
 function fmtWon(n){ return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
-// 숫자를 "#억 ####만 ####" 형식으로 (0인 자리는 생략, '원' 없음)
+// 숫자를 "#억 ####만 ####원" 형식으로 (0인 자리는 생략)
 function fmtWonKor(n){
   n=Math.round(n||0);
-  if(n===0) return '0';
+  if(n===0) return '0원';
   const eok=Math.floor(n/1e8);
   const man=Math.floor((n%1e8)/1e4);
   const won=n%1e4;
   let parts=[];
   if(eok) parts.push(eok+'억');
   if(man) parts.push(man+'만');
-  if(won) parts.push(String(won));
+  if(won) parts.push(won+'원');
+  else if(!eok && !man) parts.push(won+'원');
   return parts.join(' ');
 }
 function amountToWon(text){
