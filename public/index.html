@@ -436,19 +436,17 @@ function timeKey(t){
 // "350,000,000원", "8000만", "8천만", "3억5천만", "3.5억" 등 지원
 // 숫자를 천단위 쉼표 문자열로
 function fmtWon(n){ return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g,','); }
-// 숫자를 "#억 ####만 ####원" 형식으로 (0인 자리는 생략)
+// 숫자를 "#억 ####만 ####" 형식으로 (0인 자리는 생략, '원' 없음)
 function fmtWonKor(n){
   n=Math.round(n||0);
-  if(n===0) return '0원';
+  if(n===0) return '0';
   const eok=Math.floor(n/1e8);
   const man=Math.floor((n%1e8)/1e4);
   const won=n%1e4;
   let parts=[];
   if(eok) parts.push(eok+'억');
   if(man) parts.push(man+'만');
-  if(won) parts.push(won+'원');
-  else if(!eok && !man) parts.push(won+'원');
-  // 끝이 '만'/'억'으로 끝나면 '원' 보충 안 함(자연스러움)
+  if(won) parts.push(String(won));
   return parts.join(' ');
 }
 function amountToWon(text){
@@ -822,7 +820,7 @@ const PERF_COLS={
   detail:  { label:'상세',   width:'',      cell:r=>r.detail?esc(r.detail).replace(/\n/g,'<br>'):'<span style="color:var(--ink-dim)">-</span>' },
   keywords:{ label:'키워드', width:'170px', cell:r=>`<div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div>` },
   amount:  { label:'계약금액',width:'120px', cell:r=>esc(r.amount)||'<span style="color:var(--ink-dim)">-</span>' },
-  client:  { label:'발주처', width:'120px', cell:r=>esc(r.client)||'<span style="color:var(--ink-dim)">-</span>' },
+  client:  { label:'발주처', width:'135px', cell:r=>esc(r.client)||'<span style="color:var(--ink-dim)">-</span>' },
 };
 const DEFAULT_COL_ORDER=['time','content','detail','keywords','amount','client'];
 
