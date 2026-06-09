@@ -77,6 +77,8 @@
   .kw-box input { flex: 1; min-width: 120px; background: none; border: none; padding: 4px 2px; color: var(--ink); font-family: inherit; font-size: 14px; }
   .kw-box input:focus { outline: none; }
   .kw-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--bg); font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  #kw-tags { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+  #kw-tags:empty { display: none; }
   .kw-tag .x { cursor: pointer; opacity: .8; font-weight: 700; }
   .kw-tag .x:hover { opacity: 1; }
   .check-wrap { display: flex; align-items: flex-start; gap: 10px; margin-top: 22px; cursor: pointer; color: var(--ink); font-size: 13.5px; font-weight: 400; }
@@ -211,7 +213,7 @@
       <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
       <textarea id="in-detail" placeholder="ex. 지역 상점가 상인의 자생력 강화 및 매출 증진 지원을 위한, 공동브랜드 구축 및 온오프라인 홍보채널 활성화"></textarea>
 
-      <label>키워드 <span class="hint">클릭해 선택 · 입력해 검색(초성 가능) · Enter로 새로 추가</span> <button type="button" id="kw-sort-btn" class="kw-sort-btn">빈도순 ⇅</button>
+      <label>키워드 <span class="hint">클릭해 선택 · 입력해 검색(초성 가능) · Enter로 새로 추가</span> <button type="button" id="kw-sort-btn" class="kw-sort-btn">빈도순 ⇅</button></label>
       <div class="kw-box" id="kw-box">
         <span id="kw-tags"></span><input id="in-keywords" placeholder="키워드 검색 또는 추가..." autocomplete="off">
       </div>
@@ -602,7 +604,8 @@ function addNewKw(){
   $('#in-keywords').value='';
   renderKwTags(); renderKwPool();
 }
-$('#kw-sort-btn').addEventListener('click',()=>{
+$('#kw-sort-btn').addEventListener('click',e=>{
+  e.preventDefault(); e.stopPropagation();
   kwSortMode = kwSortMode==='freq' ? 'name' : 'freq';
   $('#kw-sort-btn').textContent = (kwSortMode==='name' ? '가나다순' : '빈도순') + ' ⇅';
   renderKwPool();
