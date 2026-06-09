@@ -99,7 +99,7 @@ export function normalizeAmount(raw) {
   if (won === null || isNaN(won)) return "";
   return String(Math.round(won)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
- 
+
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
