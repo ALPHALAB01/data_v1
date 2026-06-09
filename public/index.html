@@ -67,6 +67,8 @@
   .kw-examples b { color: var(--ink); font-weight: 500; }
   .kw-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; max-height: 200px; overflow-y: auto; padding: 2px; }
   .kw-pool:empty::after { content: '아직 키워드가 없습니다. 위에 입력해 추가하세요.'; color: var(--ink-dim); font-size: 13px; }
+  .kw-sort-btn { background: none; border: 1px solid var(--line); color: var(--ink-dim); font-family: inherit; font-size: 11.5px; font-weight: 500; padding: 2px 9px; border-radius: 6px; cursor: pointer; margin-left: 8px; vertical-align: middle; transition: all .15s; }
+  .kw-sort-btn:hover { border-color: var(--accent); color: var(--accent); }
   .kw-chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .15s; user-select: none; }
   .kw-chip:hover { filter: brightness(1.15); }
   .kw-chip.selected { background: transparent; color: var(--ink-dim); border-color: var(--line); opacity: .55; }
@@ -205,7 +207,7 @@
       <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
       <textarea id="in-detail" placeholder="데이터 아키텍처 설계 및 ETL 파이프라인 개발 총괄, 사업비 절감 30% 달성 등"></textarea>
 
-      <label>키워드 <span class="hint">아래에서 클릭해 선택 · 입력해 검색(초성 가능) · 없으면 Enter로 새로 추가</span></label>
+      <label>키워드 <span class="hint">클릭해 선택 · 입력해 검색(초성 가능) · Enter로 새로 추가</span> <button type="button" id="kw-sort-btn" class="kw-sort-btn">빈도순 ⇅</button>
       <div class="kw-box" id="kw-box">
         <span id="kw-tags"></span><input id="in-keywords" placeholder="키워드 검색 또는 추가..." autocomplete="off">
       </div>
@@ -512,6 +514,11 @@ function keywordsByFrequency(){
     return d!==0 ? d : a.localeCompare(b,'ko');
   });
 }
+function keywordsByName(){
+  return allKeywords().sort((a,b)=>a.localeCompare(b,'ko'));
+}
+let kwSortMode='freq';  // 'freq' | 'name'
+function sortedKeywords(){ return kwSortMode==='name' ? keywordsByName() : keywordsByFrequency(); }
 function renderKwTags(){
   $('#kw-tags').innerHTML=selectedKw.map(k=>
     `<span class="kw-tag" data-kw="${esc(k)}">${esc(k)}<span class="x" title="제거">✕</span></span>`
@@ -525,7 +532,7 @@ function renderKwTags(){
 }
 function renderKwPool(){
   const q=$('#in-keywords').value.trim().toLowerCase();
-  let list=keywordsByFrequency();
+  let list=sortedKeywords();
   if(q){
     const choMode=isAllChoseong(q);
     list=list.filter(k=>{
@@ -559,6 +566,11 @@ function addNewKw(){
   $('#in-keywords').value='';
   renderKwTags(); renderKwPool();
 }
+$('#kw-sort-btn').addEventListener('click',()=>{
+  kwSortMode = kwSortMode==='freq' ? 'name' : 'freq';
+  $('#kw-sort-btn').textContent = (kwSortMode==='name' ? '가나다순' : '빈도순') + ' ⇅';
+  renderKwPool();
+});
 $('#kw-box').addEventListener('click',()=>$('#in-keywords').focus());
 $('#in-keywords').addEventListener('input',renderKwPool);
 $('#in-keywords').addEventListener('keydown',e=>{
