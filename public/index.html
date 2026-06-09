@@ -186,7 +186,7 @@
   <div class="head-inner">
     <div class="brand" id="brand-logo" style="cursor:pointer" title="사용설명서">알파랩<span> 데이터</span></div>
     <nav>
-      <button class="tab active" data-page="input">입력</button>
+      <button class="tab" data-page="input">입력</button>
       <button class="tab" data-page="history">연혁 데이터베이스</button>
       <button class="tab" data-page="perf">실적 데이터베이스</button>
       <button class="tab" data-page="match">매칭 AI 프롬프트 출력</button>
@@ -197,7 +197,7 @@
 <div class="wrap">
 
   <!-- ===== PAGE 1: 입력 ===== -->
-  <section class="page active" id="page-input">
+  <section class="page" id="page-input">
     <h1 class="ptitle">데이터 입력</h1>
     <p class="psub">한 번 입력하면 연혁 데이터베이스와 실적 데이터베이스 양쪽에 저장됩니다.</p>
     <div class="card">
@@ -252,7 +252,7 @@
   <!-- ===== PAGE 2: 연혁 데이터베이스 ===== -->
   <section class="page" id="page-history">
     <h1 class="ptitle">연혁 데이터베이스</h1>
-    <p class="psub">실적 데이터베이스와 같은 데이터를 시기 <b>YY.MM</b> 형식으로 봅니다. '연혁으로 지정(기본 연혁)'된 항목은 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.</p>
+    <p class="psub">연혁으로 지정된 항목은 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.</p>
     <div class="card">
       <div class="toolbar">
         <input class="search" id="h-search" placeholder="시기·내용·키워드 검색...">
@@ -263,8 +263,8 @@
           <option value="year_asc">연도순 (오래된)</option>
         </select>
         <span class="count" id="h-count">불러오는 중...</span>
-        <label class="filter-check"><input type="checkbox" id="h-include-default"> 기본 포함</label>
-        <button class="btn ghost sm" id="h-paren-btn">괄호 추가</button>
+        <label class="filter-check"><input type="checkbox" id="h-include-default" checked> 기본 포함</label>
+        <button class="btn sm" id="h-paren-btn">괄호 추가 ✓</button>
         <button class="btn sm" id="h-copy-btn">복사하기</button>
         <button class="btn ghost sm" id="h-refresh-btn">새로고침</button>
       </div>
@@ -275,7 +275,7 @@
   <!-- ===== PAGE 3: 실적 데이터베이스 ===== -->
   <section class="page" id="page-perf">
     <h1 class="ptitle">실적 데이터베이스</h1>
-    <p class="psub">시기는 <b>YY.MM.DD~YY.MM.DD</b> 형식입니다. ('기본 연혁'으로 지정한 항목은 연혁 데이터베이스에만 표시되고 여기에는 나타나지 않습니다.) 표의 <b>열 머리(헤더)를 드래그</b>하면 열 순서를 바꿀 수 있습니다.</p>
+    <p class="psub">열 머리를 좌우로 드래그해 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.</p>
     <div class="card">
       <div class="toolbar">
         <input class="search" id="p-search" placeholder="검색...">
@@ -322,7 +322,6 @@
         </div>
       </div>
       </div>
-      <div class="note" id="p-col-note" style="margin-top:0;margin-bottom:16px">열 머리를 좌우로 드래그해 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.</div>
       <div id="p-table-wrap" style="overflow-x:auto"><div class="empty">불러오는 중...</div></div>
     </div>
   </section>
@@ -330,7 +329,7 @@
   <!-- ===== PAGE 4: 매칭 ===== -->
   <section class="page" id="page-match">
     <h1 class="ptitle">매칭 AI 프롬프트 출력</h1>
-    <p class="psub">제안요청서를 붙여넣으면 저장된 데이터와 합쳐 Claude에게 보낼 프롬프트를 만들어 드립니다. 복사해서 claude.ai 채팅에 붙여넣으면 분석·정리해 줍니다. (추가 비용 없음)</p>
+    <p class="psub">제안요청서를 붙여넣으면 저장된 데이터와 합쳐 AI가 분석, 정리할 수 있는 프롬프트를 만들어 드립니다.</p>
     <div class="card">
       <label class="first">제안요청서 / 과업지시서 내용</label>
       <textarea class="tall" id="rfp-text" placeholder="제안요청서(RFP) 또는 과업지시서 전문을 붙여넣으세요..."></textarea>
@@ -360,70 +359,55 @@
   </section>
 
   <!-- ===== PAGE: 사용설명서 ===== -->
-  <section class="page" id="page-help">
-    <h1 class="ptitle">알파랩 데이터 사용설명서</h1>
-    <p class="psub">알파랩의 연혁·실적 데이터를 한곳에서 관리하고, 정부·공공 제안서 작성에 활용하기 위한 도구입니다. 각 페이지의 기능을 정리했습니다.</p>
+  <section class="page active" id="page-help">
+    <h1 class="ptitle">'알파랩 데이터' 사용설명서</h1>
+    <p class="psub">알파랩의 연혁·실적 데이터를 한곳에서 관리하고, 정부·공공 제안서 작성에 활용하기 위한 도구입니다.</p>
 
     <div class="card help-card">
       <h2 class="help-h">전체 구조</h2>
-      <p>한 번 입력한 데이터는 <b>연혁 데이터베이스</b>와 <b>실적 데이터베이스</b> 양쪽에서 보입니다. 연혁 DB는 전체를 보여주고, 실적 DB는 그중 '기본연혁'으로 지정하지 않은 항목만 보여줍니다. 즉 실적은 연혁의 부분집합입니다. 데이터는 클라우드(Cloudflare D1)에 저장되어 어느 기기에서 접속해도 같은 내용이 보입니다.</p>
+      <ul class="help-ul">
+        <li>입력한 데이터는 '연혁 데이터베이스'와 '실적 데이터베이스' 모두 저장됩니다.</li>
+        <li>입력한 데이터는 연결된 구글 스프레드시트(계약실적)에도 자동으로 추가됩니다. (기본연혁으로 지정한 항목은 시트에 저장되지 않습니다.)</li>
+      </ul>
     </div>
 
     <div class="card help-card">
       <h2 class="help-h">① 입력</h2>
       <ul class="help-ul">
-        <li><b>시작시기(계약일)·종료시기</b>: 날짜를 자유롭게 입력하면 자동으로 <code>YY.MM.DD</code> 형식으로 정리됩니다. 종료는 선택입니다.</li>
-        <li><b>내용·상세내용</b>: 사업명과 세부 수행내용입니다. 상세내용은 선택입니다.</li>
-        <li><b>키워드</b>: 아래 목록에서 클릭해 선택하거나, 입력창에 쳐서 검색(초성 가능, 예 'ㄱ')할 수 있습니다. 목록에 없으면 Enter로 새 키워드를 추가합니다. 선택된 키워드는 노란색, 미선택은 흐릿하게 표시됩니다. '빈도순/가나다순' 토글과 '초기화' 버튼이 있습니다.</li>
-        <li><b>계약금액</b>: 숫자·한글 단위(예 '8천만', '3억5천만') 어떻게 입력해도 저장 시 천단위 쉼표 형식으로 변환됩니다.</li>
-        <li><b>기본연혁으로 지정</b>: 체크하면 연혁 데이터베이스에만 등록되고 실적 데이터베이스에는 나타나지 않습니다.</li>
+        <li><b>필수 입력</b>: 시작시기, 내용</li>
+        <li><b>선택 입력</b>: 종료시기, 상세내용, 키워드, 계약금액, 발주처</li>
+        <li>연혁 입력 시 (연도.월)만 작성해도 무방합니다.</li>
+        <li>키워드는 초성 검색이 가능합니다.</li>
+        <li><b>기본연혁으로 지정</b>: 체크 시 연혁 데이터베이스에만 등록되고 실적 데이터베이스에는 나타나지 않습니다.</li>
       </ul>
     </div>
 
     <div class="card help-card">
       <h2 class="help-h">② 연혁 데이터베이스</h2>
       <ul class="help-ul">
-        <li>모든 데이터를 시기 <code>YY.MM</code> 형식으로 보여줍니다. 발주처가 있으면 <code>[발주처] 내용</code> 형태로 표시됩니다.</li>
-        <li><b>검색</b>은 띄어쓰기로 여러 단어를 넣으면 그중 하나라도 포함된 항목이 모두 나옵니다(OR 검색).</li>
-        <li><b>기본 포함</b>을 켜면 기본연혁 항목이 검색과 무관하게 항상 표시됩니다.</li>
-        <li>각 행 왼쪽 <b>눈 버튼</b>으로 행을 가릴 수 있고(누른 채 드래그하면 여러 개), <b>복사하기</b>를 누르면 가려진 행을 뺀 보이는 데이터만 복사됩니다.</li>
-        <li>키워드는 가나다순으로 표시됩니다.</li>
+        <li>발주처가 있으면 <code>[발주처] 내용</code> 형태로 표시됩니다. (실적데이터)</li>
+        <li>'기본 포함'을 켜면 기본연혁 항목이 검색과 무관하게 항상 표시됩니다.</li>
+        <li>'괄호 추가'를 켜면 시기에 괄호가 자동으로 붙습니다.</li>
+        <li>각 행 왼쪽 눈 버튼으로 행을 가릴 수 있고, 복사하기를 누르면 보이는 데이터만 복사됩니다.</li>
+        <li>* 교육관련 연혁 산출 시, '기본 포함' 체크 상태로 '교육' 검색 후 복사하기 버튼 클릭 시 교육 관련 연혁을 쉽게 복사할 수 있습니다.</li>
       </ul>
     </div>
 
     <div class="card help-card">
       <h2 class="help-h">③ 실적 데이터베이스</h2>
       <ul class="help-ul">
-        <li>기본연혁이 아닌 실적만 보여줍니다. 시기는 <code>YY.MM.DD ~ YY.MM.DD</code> 두 줄로 표시됩니다.</li>
-        <li><b>열 머리 드래그</b>로 열 순서를 바꿀 수 있습니다.</li>
-        <li><b>필터</b> 버튼: 계약금액(이상)·시기(이후)·제외 키워드로 거를 수 있습니다. 제외 키워드는 그 키워드만 가진 데이터를 숨기되, 다른 키워드가 남아 있으면 계속 표시합니다.</li>
-        <li><b>열 선택</b> 버튼: 특정 열을 화면·복사에서 숨깁니다('내용'은 항상 표시). 숨긴 항목은 내용을 클릭하면 아래에 펼쳐 볼 수 있습니다.</li>
-        <li><b>눈 버튼</b>으로 행을 가리고(드래그 가능), 복사 시 제외됩니다.</li>
-        <li><b>복사하기</b>: 화면에 보이는 순서·열 그대로 복사됩니다. 엑셀·구글시트·한글 표에 붙이면 칸에 나뉘어 들어갑니다.</li>
-        <li>맨 아래 <b>합계</b>: 보이는 데이터(가린 행 제외)의 건수와, 계약금액 열이 보이면 총액(숫자 및 한글 표기)을 보여줍니다.</li>
-        <li><b>전체 초기화</b>: 열 순서·표시 열·숨김·필터를 모두 기본값으로 되돌립니다.</li>
+        <li>열 머리 드래그로 열 순서를 바꿀 수 있습니다. (제안요청서의 표 양식에 맞춰 순서 조정 가능)</li>
+        <li><b>열 선택</b> 버튼: 특정 열을 숨깁니다. 숨긴 항목은 내용을 클릭하면 아래에 펼쳐 볼 수 있습니다. (제안요청서의 표 양식에 맞춰 필요한 열만 선택 가능)</li>
+        <li><b>필터</b> 버튼: 계약금액·시기·제외 키워드로 거를 수 있습니다. 제외 키워드는 그 키워드만 가진 데이터를 숨기되, 다른 키워드가 남아 있으면 계속 표시합니다.</li>
+        <li><b>데이터 합계</b>: 총 합계 건수와, 계약금액의 총액을 보여줍니다. (정량점수 계산용)</li>
       </ul>
     </div>
 
     <div class="card help-card">
       <h2 class="help-h">④ 매칭 AI 프롬프트 출력</h2>
       <ul class="help-ul">
-        <li>제안요청서(RFP)나 과업지시서를 붙여넣으면, 저장된 데이터와 합쳐 <b>Claude에게 보낼 프롬프트</b>를 만들어 줍니다.</li>
-        <li>생성된 프롬프트를 복사해 claude.ai 채팅에 붙여넣으면 분석·정리해 줍니다. (별도 API 비용 없음)</li>
+        <li>제안요청서(RFP)나 과업지시서를 붙여넣으면, 저장된 데이터와 합쳐 AI에게 보낼 프롬프트를 만들어 줍니다.</li>
         <li>'연혁 데이터만 사용'을 체크하면 간단한 연혁만, 해제하면 상세내용·금액·발주처까지 포함한 실적 전체를 사용합니다.</li>
-      </ul>
-    </div>
-
-    <div class="card help-card">
-      <h2 class="help-h">구글 시트 연동</h2>
-      <p>입력 페이지에서 새 실적을 저장하면 연결된 구글 스프레드시트에도 자동으로 행이 추가됩니다(기본연혁으로 지정한 항목은 시트에 저장되지 않습니다). 시트의 계약일·계약기간·계약금액·분야·계약명·계약내용 칸에 맞춰 기록됩니다.</p>
-    </div>
-
-    <div class="card help-card">
-      <h2 class="help-h">팁</h2>
-      <ul class="help-ul">
-        <li>이 설명서는 상단 왼쪽 <b>알파랩 데이터</b> 로고를 클릭하면 언제든 볼 수 있습니다.</li>
-        <li>눈으로 가리기·열 선택·필터는 임시 상태로, 새로고침하면 초기화됩니다(열 순서·열 선택은 브라우저에 저장됩니다).</li>
       </ul>
     </div>
   </section>
@@ -760,7 +744,7 @@ $('#clear-btn').addEventListener('click',()=>{
 /* ============ Page 2: 연혁 DB ============ */
 let hVisible=[];
 let hEditingId=null;
-let hUseParens=false;
+let hUseParens=true;
 // 임시 숨김(복사 제외) 행 id — 새로고침하면 초기화
 let hHidden=new Set();
 let pHidden=new Set();
@@ -860,7 +844,7 @@ function renderHistory(){
 
   wrap.querySelectorAll('.h-edit').forEach(b=>b.addEventListener('click',e=>{ hEditingId=+e.target.closest('tr').dataset.id; renderHistory(); }));
   wrap.querySelectorAll('.he-cancel').forEach(b=>b.addEventListener('click',()=>{ hEditingId=null; renderHistory(); }));
-  wrap.querySelectorAll('.h-del').forEach(b=>b.addEventListener('click',e=>delItem(+e.target.closest('tr').dataset.id)));
+  wrap.querySelectorAll('.h-del').forEach(b=>b.addEventListener('click',e=>delHistItem(+e.target.closest('tr').dataset.id)));
   wrap.querySelectorAll('.he-save').forEach(b=>b.addEventListener('click',e=>saveHistoryEdit(+e.target.closest('tr').dataset.id)));
 }
 
@@ -1194,6 +1178,42 @@ async function delItem(id){
     renderHistory(); renderPerf();
     toast('삭제되었습니다');
   }catch(e){ toast('삭제 실패: '+e.message,true); }
+}
+
+// 연혁 페이지 삭제: 연혁에서만 뺄지(=실적에서 제외, 기본연혁으로 전환), 전체 삭제할지 선택
+async function delHistItem(id){
+  const item=cache.find(r=>r.id===id);
+  if(!item) return;
+  // 이미 기본연혁(연혁 전용)이면 '연혁에서만' 옵션이 의미 없으므로 전체 삭제만 확인
+  if(item.is_default){
+    return delItem(id);
+  }
+  const ok=confirm(
+    '이 항목을 어떻게 삭제할까요?\n\n' +
+    '[확인] 전체 삭제 — 연혁·실적 양쪽에서 완전히 삭제합니다.\n' +
+    '[취소] 를 누르면 다음 단계에서 "연혁 페이지에서만 삭제"를 선택할 수 있습니다.'
+  );
+  if(ok){
+    return delItem(id);
+  }
+  // 전체 삭제를 취소한 경우: 연혁에서만 삭제할지 다시 확인
+  const onlyHist=confirm(
+    '연혁 페이지에서만 삭제할까요?\n\n' +
+    '실적 데이터베이스에서는 사라지지만, 연혁 데이터베이스에는 "기본연혁"으로 남습니다.\n' +
+    '(데이터 자체는 보존됩니다.)'
+  );
+  if(!onlyHist) return; // 아무것도 안 함
+  try{
+    const res=await fetch('/api/history/'+id,{ method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ ...item, is_default:true })
+    });
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error);
+    const r=cache.find(x=>x.id===id); if(r) r.is_default=1;
+    renderHistory(); renderPerf();
+    toast('연혁 페이지 기준으로 처리되었습니다 (기본연혁으로 전환)');
+  }catch(e){ toast('처리 실패: '+e.message,true); }
 }
 
 /* ============ 공용 복사 ============ */
