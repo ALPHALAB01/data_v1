@@ -69,9 +69,9 @@
   .kw-pool:empty::after { content: '아직 키워드가 없습니다. 위에 입력해 추가하세요.'; color: var(--ink-dim); font-size: 13px; }
   .kw-sort-btn { background: none; border: 1px solid var(--line); color: var(--ink-dim); font-family: inherit; font-size: 11.5px; font-weight: 500; padding: 2px 9px; border-radius: 6px; cursor: pointer; margin-left: 8px; vertical-align: middle; transition: all .15s; }
   .kw-sort-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .kw-chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .15s; user-select: none; }
-  .kw-chip:hover { filter: brightness(1.15); }
-  .kw-chip.selected { background: transparent; color: var(--ink-dim); border-color: var(--line); opacity: .55; }
+  .kw-chip { background: transparent; color: var(--ink-dim); border: 1px solid var(--line); font-size: 12.5px; font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .15s; user-select: none; opacity: .6; }
+  .kw-chip:hover { opacity: 1; border-color: var(--accent); color: var(--accent); }
+  .kw-chip.selected { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); opacity: 1; }
   .kw-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 10px; cursor: text; }
   .kw-box:focus-within { border-color: var(--accent); }
   .kw-box input { flex: 1; min-width: 120px; background: none; border: none; padding: 4px 2px; color: var(--ink); font-family: inherit; font-size: 14px; }
@@ -82,6 +82,7 @@
   .check-wrap { display: flex; align-items: flex-start; gap: 10px; margin-top: 22px; cursor: pointer; color: var(--ink); font-size: 13.5px; font-weight: 400; }
   .check-wrap input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
   .check-wrap b { color: var(--accent); font-weight: 600; }
+  .check-desc { color: var(--ink-dim); font-size: 12.5px; margin-left: 6px; }
   .badge { display: inline-block; background: var(--accent); color: var(--bg); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-right: 6px; vertical-align: middle; letter-spacing: .3px; }
   tr.is-default td { background: rgba(212,168,87,.07); }
 
@@ -189,26 +190,26 @@
   <!-- ===== PAGE 1: 입력 ===== -->
   <section class="page active" id="page-input">
     <h1 class="ptitle">데이터 입력</h1>
-    <p class="psub">한 번 입력하면 연혁 데이터베이스와 실적 데이터베이스 양쪽에 저장됩니다. (시기 형식만 다름: 연혁 YY.MM / 실적 YY.MM.DD~)</p>
+    <p class="psub">한 번 입력하면 연혁 데이터베이스와 실적 데이터베이스 양쪽에 저장됩니다.</p>
     <div class="card">
       <div class="row2">
         <div>
-          <label class="first">시기 (시작) <span class="hint">필수</span></label>
+          <label class="first">시작시기 (계약일) <span class="hint">필수</span></label>
           <input id="in-time" placeholder="2024.01.05  또는  240105">
           <div class="field-preview" id="time-preview"></div>
         </div>
         <div>
-          <label class="first">끝 (종료) <span class="hint">선택</span></label>
+          <label class="first">종료시기 <span class="hint">선택</span></label>
           <input id="in-time-end" placeholder="2024.12.31">
           <div class="field-preview" id="time-end-preview"></div>
         </div>
       </div>
 
       <label>내용 <span class="hint">필수 · 사업명/실적명</span></label>
-      <textarea id="in-content" placeholder="○○부 데이터 플랫폼 구축 용역"></textarea>
+      <textarea id="in-content" placeholder="ex. 2025 고척중앙 골목형상점가 육성지원사업 용역"></textarea>
 
       <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
-      <textarea id="in-detail" placeholder="데이터 아키텍처 설계 및 ETL 파이프라인 개발 총괄, 사업비 절감 30% 달성 등"></textarea>
+      <textarea id="in-detail" placeholder="ex. 지역 상점가 상인의 자생력 강화 및 매출 증진 지원을 위한, 공동브랜드 구축 및 온오프라인 홍보채널 활성화"></textarea>
 
       <label>키워드 <span class="hint">클릭해 선택 · 입력해 검색(초성 가능) · Enter로 새로 추가</span> <button type="button" id="kw-sort-btn" class="kw-sort-btn">빈도순 ⇅</button>
       <div class="kw-box" id="kw-box">
@@ -219,7 +220,7 @@
       <div class="row2">
         <div>
           <label>계약금액 <span class="hint">선택</span></label>
-          <input id="in-amount" placeholder="350,000,000원">
+          <input id="in-amount" placeholder="80,000,000">
         </div>
         <div>
           <label>발주처 <span class="hint">선택</span></label>
@@ -229,7 +230,7 @@
 
       <label class="check-wrap">
         <input type="checkbox" id="in-default">
-        <span><b>연혁으로 지정 (기본 연혁)</b> — 체크하면 연혁 데이터베이스에만 등록되고 실적 데이터베이스에는 표시되지 않습니다. (연혁 DB에서 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.)</span>
+        <span><b>기본연혁으로 지정</b> <span class="check-desc">연혁 데이터베이스에만 등록</span></span>
       </label>
 
       <div class="btn-row">
