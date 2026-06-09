@@ -65,6 +65,17 @@
   .chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 4px 12px; border-radius: 20px; }
   .kw-examples { margin-top: 9px; font-size: 12px; color: var(--ink-dim); }
   .kw-examples b { color: var(--ink); font-weight: 500; }
+  .kw-autocomplete { position: relative; }
+  .kw-suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; z-index: 30; display: none; }
+  .kw-suggest.show { display: block; }
+  .kw-suggest .opt { padding: 9px 14px; font-size: 13.5px; cursor: pointer; }
+  .kw-suggest .opt:hover, .kw-suggest .opt.active { background: var(--panel-2); color: var(--accent); }
+  .kw-suggest .opt .new-tag { color: var(--green); font-size: 11.5px; margin-left: 6px; }
+  #kw-selected { margin-bottom: 8px; }
+  #kw-selected:empty { display: none; }
+  #kw-selected .chip { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
+  #kw-selected .chip .x { cursor: pointer; font-weight: 700; opacity: .7; }
+  #kw-selected .chip .x:hover { opacity: 1; }
   .check-wrap { display: flex; align-items: flex-start; gap: 10px; margin-top: 22px; cursor: pointer; color: var(--ink); font-size: 13.5px; font-weight: 400; }
   .check-wrap input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
   .check-wrap b { color: var(--accent); font-weight: 600; }
@@ -193,10 +204,13 @@
       <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
       <textarea id="in-detail" placeholder="데이터 아키텍처 설계 및 ETL 파이프라인 개발 총괄, 사업비 절감 30% 달성 등"></textarea>
 
-      <label>키워드 <span class="hint">띄어쓰기로 여러 개</span></label>
-      <input id="in-keywords" placeholder="선정 협력 인가 수상">
+      <label>키워드 <span class="hint">기존 키워드를 고르거나, 입력 후 Enter로 새 키워드 추가</span></label>
+      <div class="chips" id="kw-selected"></div>
+      <div class="kw-autocomplete">
+        <input id="in-keywords" placeholder="키워드 입력 또는 선택..." autocomplete="off">
+        <div class="kw-suggest" id="kw-suggest"></div>
+      </div>
       <div class="kw-examples">예시 키워드: <b>연혁 · 선정 · 협력 · 지정 · 인가 · 등록 · 수상</b></div>
-      <div class="chips" id="kw-preview"></div>
 
       <div class="row2">
         <div>
@@ -464,9 +478,82 @@ async function loadDB(){
 }
 
 /* ============ Page 1: 입력 ============ */
-$('#in-keywords').addEventListener('input',e=>{
-  $('#kw-preview').innerHTML=kwArray(e.target.value).map(k=>`<span class="chip">${esc(k)}</span>`).join('');
+/* 키워드 자동완성 + 태그 선택 */
+let selectedKw=[];        // 현재 선택된 키워드 배열
+let kwSuggestIdx=-1;      // 키보드 화살표용 활성 인덱스
+
+function allKeywords(){
+  // cache의 모든 키워드를 모아 중복 제거 + 가나다 정렬
+  const set=new Set();
+  cache.forEach(r=>kwArray(r.keywords).forEach(k=>set.add(k)));
+  return [...set].sort((a,b)=>a.localeCompare(b,'ko'));
+}
+function renderSelectedKw(){
+  $('#kw-selected').innerHTML=selectedKw.map(k=>
+    `<span class="chip" data-kw="${esc(k)}">${esc(k)} <span class="x" title="제거">✕</span></span>`
+  ).join('');
+  $('#kw-selected').querySelectorAll('.x').forEach(x=>x.addEventListener('click',e=>{
+    const k=e.target.closest('.chip').dataset.kw;
+    selectedKw=selectedKw.filter(v=>v!==k);
+    renderSelectedKw();
+  }));
+}
+function addKw(k){
+  k=(k||'').trim();
+  if(!k) return;
+  if(!selectedKw.includes(k)) selectedKw.push(k);
+  $('#in-keywords').value='';
+  renderSelectedKw();
+  renderKwSuggest();
+}
+function renderKwSuggest(){
+  const q=$('#in-keywords').value.trim().toLowerCase();
+  const box=$('#kw-suggest');
+  const all=allKeywords().filter(k=>!selectedKw.includes(k));
+  let matches = q ? all.filter(k=>k.toLowerCase().includes(q)) : all;
+  let html='';
+  // 입력값이 기존에 없으면 "새 키워드 추가" 옵션 노출
+  const exact = q && allKeywords().some(k=>k.toLowerCase()===q);
+  if(q && !exact){
+    html+=`<div class="opt" data-new="1">"${esc($('#in-keywords').value.trim())}" <span class="new-tag">+ 새 키워드</span></div>`;
+  }
+  html+=matches.map((k,i)=>`<div class="opt" data-kw="${esc(k)}">${esc(k)}</div>`).join('');
+  if(!html){ box.classList.remove('show'); box.innerHTML=''; return; }
+  box.innerHTML=html;
+  box.classList.add('show');
+  kwSuggestIdx=-1;
+  box.querySelectorAll('.opt').forEach(opt=>opt.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    if(opt.dataset.new) addKw($('#in-keywords').value);
+    else addKw(opt.dataset.kw);
+  }));
+}
+$('#in-keywords').addEventListener('input',renderKwSuggest);
+$('#in-keywords').addEventListener('focus',renderKwSuggest);
+$('#in-keywords').addEventListener('blur',()=>{ setTimeout(()=>$('#kw-suggest').classList.remove('show'),150); });
+$('#in-keywords').addEventListener('keydown',e=>{
+  const box=$('#kw-suggest');
+  const opts=[...box.querySelectorAll('.opt')];
+  if(e.key==='Enter'){
+    e.preventDefault();
+    if(kwSuggestIdx>=0 && opts[kwSuggestIdx]){
+      const opt=opts[kwSuggestIdx];
+      if(opt.dataset.new) addKw($('#in-keywords').value); else addKw(opt.dataset.kw);
+    }else{
+      addKw($('#in-keywords').value); // 입력값 그대로 추가(새 키워드)
+    }
+  }else if(e.key==='ArrowDown'){
+    e.preventDefault(); kwSuggestIdx=Math.min(kwSuggestIdx+1,opts.length-1); updateActive(opts);
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault(); kwSuggestIdx=Math.max(kwSuggestIdx-1,0); updateActive(opts);
+  }else if(e.key==='Backspace' && !$('#in-keywords').value && selectedKw.length){
+    selectedKw.pop(); renderSelectedKw(); renderKwSuggest();
+  }
 });
+function updateActive(opts){
+  opts.forEach((o,i)=>o.classList.toggle('active',i===kwSuggestIdx));
+  if(opts[kwSuggestIdx]) opts[kwSuggestIdx].scrollIntoView({block:'nearest'});
+}
 $('#in-time').addEventListener('input',e=>{
   const ymd=toYMD(e.target.value);
   $('#time-preview').innerHTML=ymd?`연혁 <b>${esc(ymOf(ymd))}</b> · 실적 <b>${esc(ymd)}</b>`:'';
@@ -486,7 +573,7 @@ $('#save-btn').addEventListener('click',async()=>{
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         time:$('#in-time').value, time_end:$('#in-time-end').value,
-        content, detail:$('#in-detail').value, keywords:$('#in-keywords').value,
+        content, detail:$('#in-detail').value, keywords:[...selectedKw, $('#in-keywords').value.trim()].filter(Boolean).join(' '),
         amount:$('#in-amount').value, client:$('#in-client').value,
         is_default:$('#in-default').checked
       })
@@ -497,14 +584,16 @@ $('#save-btn').addEventListener('click',async()=>{
     // 구글 시트에 새 행 추가 (단, 기본 연혁은 제외 — 실적만 시트에 기록)
     if(!data.item.is_default) sendToSheet(data.item);
     ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
-    $('#in-default').checked=false; $('#kw-preview').innerHTML=''; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
+    selectedKw=[]; renderSelectedKw(); $('#kw-suggest').classList.remove('show');
+    $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
     toast(data.item.is_default?'저장됨 (기본 연혁으로 지정)':'저장되었습니다');
   }catch(e){ toast('저장 실패: '+e.message,true); }
   finally{ btn.disabled=false; }
 });
 $('#clear-btn').addEventListener('click',()=>{
   ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
-  $('#in-default').checked=false; $('#kw-preview').innerHTML=''; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
+  selectedKw=[]; renderSelectedKw(); $('#kw-suggest').classList.remove('show');
+  $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
 });
 
 /* ============ Page 2: 연혁 DB ============ */
