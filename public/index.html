@@ -92,6 +92,7 @@
   .check-wrap input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
   .check-wrap b { color: var(--accent); font-weight: 600; }
   .check-desc { color: var(--ink-dim); font-size: 12.5px; margin-left: 6px; }
+  .restore-note { color: var(--green); font-size: 12.5px; }
   .badge { display: inline-block; background: var(--accent); color: var(--bg); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-right: 6px; vertical-align: middle; letter-spacing: .3px; }
   tr.is-default td { background: rgba(212,168,87,.07); }
 
@@ -801,8 +802,9 @@ function renderHistory(){
   const includeDefault=$('#h-include-default').checked;
   const matchSearch=r=> matchOR(q, [ymOf(r.time), r.content, r.keywords]);
 
-  // 연혁 DB = 전체 항목 표시 (실적 DB와 동일한 데이터, 시기 형식만 YY.MM)
+  // 연혁 DB = 전체 항목 표시 (단, 연혁에서만 삭제된 항목은 제외)
   let filtered=cache.filter(r=>{
+    if(r.hidden_in_history) return false;   // 연혁 페이지에서만 삭제된 항목
     // '기본 포함'이 켜져 있으면 연혁 지정(is_default) 항목은 검색과 무관하게 항상 표시
     if(includeDefault && r.is_default) return true;
     return matchSearch(r);
@@ -974,6 +976,7 @@ function renderPerf(){
         <input class="pe-kw" value="${esc(r.keywords)}" placeholder="키워드 (띄어쓰기)">
         <div class="row2"><input class="pe-amount" value="${esc(r.amount)}" placeholder="계약금액"><input class="pe-client" value="${esc(r.client)}" placeholder="발주처"></div>
         <label class="filter-check"><input type="checkbox" class="pe-default" ${r.is_default?'checked':''}> 연혁으로 지정</label>
+        ${r.hidden_in_history?`<label class="filter-check restore-note"><input type="checkbox" class="pe-restore"> 이 항목은 연혁 페이지에서 삭제되었습니다. 다시 표시할까요?</label>`:''}
         <div class="row-actions"><button class="btn sm pe-save">저장</button><button class="btn ghost sm pe-cancel">취소</button></div>
       </div></td></tr>`;
     }else{
@@ -1039,11 +1042,16 @@ async function savePerfEdit(id){
   const row=document.querySelector(`#p-table-wrap tr.edit-row[data-id="${id}"]`);
   const content=row.querySelector('.pe-content').value.trim();
   if(!content){ toast('내용을 입력하세요',true); return; }
+  const orig=cache.find(r=>r.id===id)||{};
+  const restoreCb=row.querySelector('.pe-restore');
+  // 복원 체크박스가 있으면 그 값으로, 없으면 기존 상태 유지
+  const hidden = restoreCb ? (restoreCb.checked ? false : true) : !!orig.hidden_in_history;
   const payload={
     time:row.querySelector('.pe-time').value, time_end:row.querySelector('.pe-time-end').value,
     content, detail:row.querySelector('.pe-detail').value, keywords:row.querySelector('.pe-kw').value,
     amount:row.querySelector('.pe-amount').value, client:row.querySelector('.pe-client').value,
-    is_default:row.querySelector('.pe-default').checked
+    is_default:row.querySelector('.pe-default').checked,
+    hidden_in_history:hidden
   };
   pEditingId=null;        // 먼저 편집 상태 해제 → putItem의 렌더링에서 편집창이 닫힘
   await putItem(id,payload);
@@ -1180,39 +1188,39 @@ async function delItem(id){
   }catch(e){ toast('삭제 실패: '+e.message,true); }
 }
 
-// 연혁 페이지 삭제: 연혁에서만 뺄지(=실적에서 제외, 기본연혁으로 전환), 전체 삭제할지 선택
+// 연혁 페이지 삭제: 연혁에서만 숨길지, 전체(연혁·실적) 삭제할지 선택
 async function delHistItem(id){
   const item=cache.find(r=>r.id===id);
   if(!item) return;
-  // 이미 기본연혁(연혁 전용)이면 '연혁에서만' 옵션이 의미 없으므로 전체 삭제만 확인
+  // 기본연혁은 실적 페이지에 없으므로 '연혁에서만 숨김'을 하면 어디서도 안 보임 → 전체 삭제만
   if(item.is_default){
     return delItem(id);
   }
   const ok=confirm(
-    '이 항목을 어떻게 삭제할까요?\n\n' +
-    '[확인] 전체 삭제 — 연혁·실적 양쪽에서 완전히 삭제합니다.\n' +
-    '[취소] 를 누르면 다음 단계에서 "연혁 페이지에서만 삭제"를 선택할 수 있습니다.'
+    '이 항목을 전체 삭제할까요?\n\n' +
+    '[확인] 전체 삭제 — 연혁·실적 모든 페이지에서 데이터를 삭제합니다.\n' +
+    '[취소] — 다음 단계에서 "연혁 페이지에서만 삭제(실적엔 유지)"를 선택할 수 있습니다.'
   );
   if(ok){
-    return delItem(id);
+    return delItem(id);   // 전체 삭제 (DB에서 제거)
   }
-  // 전체 삭제를 취소한 경우: 연혁에서만 삭제할지 다시 확인
+  // 연혁 페이지에서만 숨기기
   const onlyHist=confirm(
     '연혁 페이지에서만 삭제할까요?\n\n' +
-    '실적 데이터베이스에서는 사라지지만, 연혁 데이터베이스에는 "기본연혁"으로 남습니다.\n' +
-    '(데이터 자체는 보존됩니다.)'
+    '연혁 데이터베이스에서는 사라지지만, 실적 데이터베이스에는 그대로 표시됩니다.\n' +
+    '(나중에 수정 화면에서 다시 표시할 수 있습니다.)'
   );
-  if(!onlyHist) return; // 아무것도 안 함
+  if(!onlyHist) return;
   try{
     const res=await fetch('/api/history/'+id,{ method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ ...item, is_default:true })
+      body:JSON.stringify({ ...item, hidden_in_history:true })
     });
     const data=await res.json();
     if(!data.ok) throw new Error(data.error);
-    const r=cache.find(x=>x.id===id); if(r) r.is_default=1;
+    const r=cache.find(x=>x.id===id); if(r) r.hidden_in_history=1;
     renderHistory(); renderPerf();
-    toast('연혁 페이지 기준으로 처리되었습니다 (기본연혁으로 전환)');
+    toast('연혁 페이지에서만 삭제되었습니다');
   }catch(e){ toast('처리 실패: '+e.message,true); }
 }
 
