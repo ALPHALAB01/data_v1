@@ -93,6 +93,15 @@
   .check-wrap b { color: var(--accent); font-weight: 600; }
   .check-desc { color: var(--ink-dim); font-size: 12.5px; margin-left: 6px; }
   .restore-note { color: var(--green); font-size: 12.5px; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal-box { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px; max-width: 380px; width: 90%; box-shadow: var(--shadow); }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+  .modal-desc { font-size: 13px; color: var(--ink-dim); line-height: 1.6; margin-bottom: 20px; }
+  .modal-btns { display: flex; flex-direction: column; gap: 9px; }
+  .modal-btns .btn { width: 100%; }
+  .btn.danger { background: #d9534f; color: #fff; }
+  .btn.danger:hover { filter: brightness(1.08); }
   .status-row { display: flex; gap: 10px; margin-bottom: 4px; }
   .status-btn { font-size: 13px; font-weight: 600; padding: 7px 20px; border-radius: 20px; cursor: pointer; background: transparent; transition: all .15s; }
   .status-btn.sel { border: 1px solid #4a90d9; color: #4a90d9; }
@@ -373,6 +382,14 @@
           <input id="a-max-time" class="filter-input" placeholder="예: 2025.12">
           <span class="filter-suffix">이전</span>
         </div>
+        <div class="filter-item">
+          <span class="filter-label">선정여부</span>
+          <select id="a-status-filter" class="sort-select">
+            <option value="all" selected>전체</option>
+            <option value="선정">선정만</option>
+            <option value="탈락">탈락만</option>
+          </select>
+        </div>
         <button class="btn ghost sm" id="a-filter-reset">필터 해제</button>
       </div>
       <div class="filter-bar">
@@ -392,6 +409,8 @@
     </div>
   </section>
 
+  <!-- ===== PAGE 4: 매칭 ===== -->
+  <section class="page" id="page-match">
     <h1 class="ptitle">매칭 AI 프롬프트 출력</h1>
     <p class="psub">제안요청서를 붙여넣으면 저장된 데이터와 합쳐 AI가 분석, 정리할 수 있는 프롬프트를 만들어 드립니다.</p>
     <div class="card">
@@ -479,6 +498,18 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="del-modal">
+  <div class="modal-box">
+    <div class="modal-title">이 항목을 어떻게 삭제할까요?</div>
+    <div class="modal-desc">연혁에서만 삭제하면 실적 데이터베이스에는 그대로 남습니다.</div>
+    <div class="modal-btns">
+      <button class="btn" id="del-hist-only">연혁에서만 삭제</button>
+      <button class="btn danger" id="del-all">전체에서 삭제</button>
+      <button class="btn ghost" id="del-cancel">취소</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ============ helpers ============ */
@@ -1268,12 +1299,15 @@ async function putItem(id, payload){
 }
 async function delItem(id){
   if(!confirm('이 항목을 삭제할까요? (연혁·실적 양쪽에서 삭제됩니다)')) return;
+  return delItemDirect(id);
+}
+async function delItemDirect(id){
   try{
     const res=await fetch('/api/history/'+id,{ method:'DELETE' });
     const data=await res.json();
     if(!data.ok) throw new Error(data.error);
     cache=cache.filter(r=>r.id!==id);
-    renderHistory(); renderPerf();
+    renderHistory(); renderPerf(); if(typeof renderApply==='function') renderApply();
     toast('삭제되었습니다');
   }catch(e){ toast('삭제 실패: '+e.message,true); }
 }
@@ -1282,25 +1316,17 @@ async function delItem(id){
 async function delHistItem(id){
   const item=cache.find(r=>r.id===id);
   if(!item) return;
-  // 기본연혁은 실적 페이지에 없으므로 '연혁에서만 숨김'을 하면 어디서도 안 보임 → 전체 삭제만
+  // 기본연혁은 실적 페이지에 없으므로 '연혁에서만 삭제'를 하면 어디서도 안 보임 → 전체 삭제만
   if(item.is_default){
     return delItem(id);
   }
-  const ok=confirm(
-    '이 항목을 전체 삭제할까요?\n\n' +
-    '[확인] 전체 삭제 — 연혁·실적 모든 페이지에서 데이터를 삭제합니다.\n' +
-    '[취소] — 다음 단계에서 "연혁 페이지에서만 삭제(실적엔 유지)"를 선택할 수 있습니다.'
-  );
-  if(ok){
-    return delItem(id);   // 전체 삭제 (DB에서 제거)
-  }
-  // 연혁 페이지에서만 숨기기
-  const onlyHist=confirm(
-    '연혁 페이지에서만 삭제할까요?\n\n' +
-    '연혁 데이터베이스에서는 사라지지만, 실적 데이터베이스에는 그대로 표시됩니다.\n' +
-    '(나중에 수정 화면에서 다시 표시할 수 있습니다.)'
-  );
-  if(!onlyHist) return;
+  openDelModal(id);
+}
+
+// 연혁 전용 삭제: 연혁에서만 숨기기
+async function histHideOnly(id){
+  const item=cache.find(r=>r.id===id);
+  if(!item) return;
   try{
     const res=await fetch('/api/history/'+id,{ method:'PUT',
       headers:{'Content-Type':'application/json'},
@@ -1313,6 +1339,18 @@ async function delHistItem(id){
     toast('연혁 페이지에서만 삭제되었습니다');
   }catch(e){ toast('처리 실패: '+e.message,true); }
 }
+
+/* 3버튼 삭제 모달 */
+let delModalId=null;
+function openDelModal(id){
+  delModalId=id;
+  $('#del-modal').classList.add('show');
+}
+function closeDelModal(){ delModalId=null; $('#del-modal').classList.remove('show'); }
+$('#del-hist-only').addEventListener('click',()=>{ const id=delModalId; closeDelModal(); if(id!=null) histHideOnly(id); });
+$('#del-all').addEventListener('click',()=>{ const id=delModalId; closeDelModal(); if(id!=null) delItemDirect(id); });
+$('#del-cancel').addEventListener('click',closeDelModal);
+$('#del-modal').addEventListener('click',e=>{ if(e.target.id==='del-modal') closeDelModal(); });
 
 /* ============ 공용 복사 ============ */
 function copyText(text, btn, doneLabel, origLabel, html){
@@ -1427,6 +1465,7 @@ $('#px-input').addEventListener('keydown',e=>{
 /* ============ Page: 지원 데이터베이스 ============ */
 let aVisible=[];
 let aHidden=new Set();      // 눈 가림 (임시)
+let aExpanded=new Set();    // 내용 클릭 시 상세 펼침
 let aExcludeKw=[];          // 제외 키워드
 
 function renderApply(){
@@ -1438,10 +1477,12 @@ function renderApply(){
   const maxRaw=$('#a-max-time').value.trim();
   const minTK = minRaw ? filterTimeKey(minRaw) : null;
   const maxTK = maxRaw ? filterTimeKey(maxRaw) : null;
+  const statusFilter=$('#a-status-filter').value;
 
   let filtered=cache.filter(r=>{
     if(r.is_default) return false;          // 기본연혁은 지원 대상 아님
     if(!r.status) return false;             // 선정/탈락 없는 항목은 지원 DB에 안 보임
+    if(statusFilter!=='all' && r.status!==statusFilter) return false;
     if(!matchSearch(r)) return false;
     if(minTK!==null && minTK>0 && timeKey(r.time) < minTK) return false;
     if(maxTK!==null && maxTK>0 && timeKey(r.time) > maxTK) return false;
@@ -1457,7 +1498,7 @@ function renderApply(){
   applySort(filtered, sortBy, r=>r.time);
   aVisible=filtered;
 
-  const activeFilter=(minTK!==null&&minTK>0)||(maxTK!==null&&maxTK>0)||aExcludeKw.length>0;
+  const activeFilter=(minTK!==null&&minTK>0)||(maxTK!==null&&maxTK>0)||aExcludeKw.length>0||statusFilter!=='all';
   $('#a-count').textContent=filtered.length+'건'+(activeFilter?' (필터 적용됨)':'');
   const wrap=$('#a-table-wrap');
   if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'조건에 맞는 데이터가 없습니다.'}</div>`; return; }
@@ -1466,17 +1507,26 @@ function renderApply(){
   let body='';
   filtered.forEach(r=>{
     const hidden=aHidden.has(r.id);
+    const expanded=aExpanded.has(r.id);
     const statusChip = r.status==='선정' ? '<span class="status-chip sel">선정</span>'
                      : r.status==='탈락' ? '<span class="status-chip rej">탈락</span>' : '';
     body+=`<tr data-id="${r.id}" class="${hidden?'row-hidden':''}">
       <td><button class="eye-btn a-eye" title="${hidden?'복사 포함':'복사 제외'}">${hidden?'🙈':'👁'}</button></td>
       <td class="time-cell">${esc(ymOf(r.time))||'-'}</td>
-      <td>${r.client?`[${esc(r.client)}] `:''}${esc(r.content)}</td>
+      <td class="a-content-toggle" title="상세내용 펼치기/접기" style="cursor:pointer">${r.client?`[${esc(r.client)}] `:''}${esc(r.content)} <span class="expand-mark">${expanded?'▾':'▸'}</span></td>
       <td><div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div></td>
       <td>${statusChip}</td>
     </tr>`;
+    if(expanded){
+      body+=`<tr class="detail-row" data-detail="${r.id}"><td></td><td colspan="4"><div class="detail-box">${r.detail?esc(r.detail).replace(/\n/g,'<br>'):'<span style="color:var(--ink-dim)">상세내용 없음</span>'}${r.amount?`<div class="exp-item" style="margin-top:6px"><span class="exp-label">계약금액</span> ${esc(r.amount)}</div>`:''}</div></td></tr>`;
+    }
   });
   wrap.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+  wrap.querySelectorAll('.a-content-toggle').forEach(td=>td.addEventListener('click',e=>{
+    const id=+e.target.closest('tr').dataset.id;
+    if(aExpanded.has(id)) aExpanded.delete(id); else aExpanded.add(id);
+    renderApply();
+  }));
   setupEyeDrag(wrap, 'a-eye', aHidden, renderApply);
 }
 
@@ -1501,11 +1551,12 @@ $('#a-search').addEventListener('input',renderApply);
 $('#a-sort').addEventListener('change',renderApply);
 $('#a-min-time').addEventListener('input',renderApply);
 $('#a-max-time').addEventListener('input',renderApply);
+$('#a-status-filter').addEventListener('change',renderApply);
 $('#a-filter-btn').addEventListener('click',()=>{
   const w=$('#a-filter-wrap'); w.style.display = w.style.display==='none' ? 'block' : 'none';
 });
 $('#a-filter-reset').addEventListener('click',()=>{
-  $('#a-min-time').value=''; $('#a-max-time').value='';
+  $('#a-min-time').value=''; $('#a-max-time').value=''; $('#a-status-filter').value='all';
   aExcludeKw=[]; $('#ax-input').value=''; renderAxTags(); renderAxPool(); renderApply();
 });
 
