@@ -1,107 +1,1118 @@
-// 공용 변환 함수들
-
-// 숫자만 추출
-function digitsOf(raw) {
-  return (String(raw || "").match(/\d/g) || []).join("");
-}
-
-// 연혁용: YY.MM 으로 변환
-export function normalizeYM(raw) {
-  if (!raw) return "";
-  const d = digitsOf(raw);
-  if (d.length === 0) return "";
-  let yy = "", mm = "";
-  if (d.length >= 6) { yy = d.slice(2, 4); mm = d.slice(4, 6); }
-  else if (d.length === 5) {
-    if (d.startsWith("19") || d.startsWith("20")) { yy = d.slice(2, 4); mm = "0" + d.slice(4, 5); }
-    else { yy = d.slice(0, 2); mm = d.slice(2, 4); }
-  } else if (d.length === 4) {
-    if (d.startsWith("19") || d.startsWith("20")) { yy = d.slice(2, 4); mm = "01"; }
-    else { yy = d.slice(0, 2); mm = d.slice(2, 4); }
-  } else if (d.length === 3) { yy = d.slice(0, 2); mm = "0" + d.slice(2, 3); }
-  else if (d.length === 2) { yy = d; mm = "01"; }
-  else { yy = "0" + d; mm = "01"; }
-  let m = parseInt(mm, 10); if (isNaN(m) || m < 1) m = 1; if (m > 12) m = 12;
-  return yy + "." + String(m).padStart(2, "0");
-}
-
-// 실적용: YY.MM.DD 로 변환 (일자 없으면 01)
-export function normalizeYMD(raw) {
-  if (!raw) return "";
-  const s = String(raw).trim();
-  if (!s) return "";
-
-  // 구분자(. - / 공백 년월일)로 나뉘어 있으면 그걸 우선 사용
-  const parts = s.split(/[^\d]+/).filter(Boolean);
-  if (parts.length >= 2) {
-    let y = parts[0];
-    let yy = y.length >= 4 ? y.slice(2, 4) : (y.length === 1 ? "0" + y : y.slice(-2));
-    let m = Math.min(Math.max(parseInt(parts[1], 10) || 1, 1), 12);
-    let dy = Math.min(Math.max(parseInt(parts[2] || "1", 10) || 1, 1), 31);
-    return yy + "." + String(m).padStart(2, "0") + "." + String(dy).padStart(2, "0");
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매칭 시스템</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2129; --panel-2: #222b35; --line: #313d49;
+    --ink: #e8eef2; --ink-dim: #8b9aa7; --accent: #d4a857; --accent-soft: #3a3220;
+    --green: #5fb88a; --red: #d06b5e; --blue: #6b9bd0;
+    --shadow: 0 12px 40px rgba(0,0,0,.45);
   }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(212,168,87,.08), transparent 40%),
+      radial-gradient(circle at 88% 92%, rgba(95,184,138,.06), transparent 40%),
+      var(--bg);
+    color: var(--ink); min-height: 100vh; line-height: 1.6;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+  header { position: sticky; top: 0; z-index: 50; background: rgba(15,20,25,.85); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .head-inner { max-width: 1100px; margin: 0 auto; padding: 18px 24px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .brand { font-family: 'Gowun Batang', serif; font-size: 21px; font-weight: 700; letter-spacing: -.5px; }
+  .brand span { color: var(--accent); }
+  nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  .tab { background: none; border: none; color: var(--ink-dim); font-family: inherit; font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: 8px; cursor: pointer; transition: all .18s; }
+  .tab:hover { color: var(--ink); background: var(--panel); }
+  .tab.active { color: var(--bg); background: var(--accent); }
 
-  // 구분자 없이 숫자만 들어온 경우 자리수로 추정
-  const d = digitsOf(s);
-  if (d.length === 0) return "";
-  let yy = "", mm = "", dd = "";
-  if (d.length >= 8) { yy = d.slice(2, 4); mm = d.slice(4, 6); dd = d.slice(6, 8); }
-  else if (d.length === 7) { yy = d.slice(2, 4); mm = d.slice(4, 6); dd = "0" + d.slice(6, 7); }
-  else if (d.length === 6) {
-    if (d.startsWith("19") || d.startsWith("20")) { yy = d.slice(2, 4); mm = d.slice(4, 6); dd = "01"; } // YYYYMM
-    else { yy = d.slice(0, 2); mm = d.slice(2, 4); dd = d.slice(4, 6); }                 // YYMMDD
-  } else if (d.length === 5) {
-    if (d.startsWith("19") || d.startsWith("20")) { yy = d.slice(2, 4); mm = "0" + d.slice(4, 5); dd = "01"; }
-    else { yy = d.slice(0, 2); mm = d.slice(2, 4); dd = "0" + d.slice(4, 5); }
-  } else if (d.length === 4) {
-    if (d.startsWith("19") || d.startsWith("20")) { yy = d.slice(2, 4); mm = "01"; dd = "01"; } // YYYY
-    else { yy = d.slice(0, 2); mm = d.slice(2, 4); dd = "01"; }                          // YYMM
-  } else if (d.length === 3) { yy = d.slice(0, 2); mm = "0" + d.slice(2, 3); dd = "01"; }
-  else if (d.length === 2) { yy = d; mm = "01"; dd = "01"; }
-  else { yy = "0" + d; mm = "01"; dd = "01"; }
-  let m = parseInt(mm, 10); if (isNaN(m) || m < 1) m = 1; if (m > 12) m = 12;
-  let dy = parseInt(dd, 10); if (isNaN(dy) || dy < 1) dy = 1; if (dy > 31) dy = 31;
-  return yy + "." + String(m).padStart(2, "0") + "." + String(dy).padStart(2, "0");
+  .page { display: none; animation: fade .35s ease; padding-top: 40px; }
+  .page.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .ptitle { font-family: 'Gowun Batang', serif; font-size: 28px; font-weight: 700; margin-bottom: 6px; letter-spacing: -.5px; }
+  .psub { color: var(--ink-dim); font-size: 14px; margin-bottom: 32px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 26px; box-shadow: var(--shadow); }
+
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--accent); margin: 18px 0 8px; letter-spacing: .3px; }
+  label.first { margin-top: 0; }
+  .hint { font-size: 12px; color: var(--ink-dim); font-weight: 400; margin-left: 6px; }
+  input, textarea { width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; color: var(--ink); font-family: inherit; font-size: 14px; padding: 12px 14px; transition: border .18s; }
+  input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 90px; }
+  textarea.tall { min-height: 200px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .field-preview { margin-top: 7px; font-size: 12px; color: var(--ink-dim); }
+  .field-preview b { color: var(--accent); }
+
+  .btn { background: var(--accent); color: var(--bg); border: none; font-family: inherit; font-weight: 600; font-size: 14px; padding: 12px 26px; border-radius: 9px; cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .btn:active { transform: none; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
+  .btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.sm { padding: 7px 14px; font-size: 12.5px; }
+  .btn-row { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 4px 12px; border-radius: 20px; }
+  .kw-examples { margin-top: 9px; font-size: 12px; color: var(--ink-dim); }
+  .kw-examples b { color: var(--ink); font-weight: 500; }
+  .kw-autocomplete { position: relative; }
+  .kw-suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; z-index: 30; display: none; }
+  .kw-suggest.show { display: block; }
+  .kw-suggest .opt { padding: 9px 14px; font-size: 13.5px; cursor: pointer; }
+  .kw-suggest .opt:hover, .kw-suggest .opt.active { background: var(--panel-2); color: var(--accent); }
+  .kw-suggest .opt .new-tag { color: var(--green); font-size: 11.5px; margin-left: 6px; }
+  #kw-selected { margin-bottom: 8px; }
+  #kw-selected:empty { display: none; }
+  #kw-selected .chip { cursor: default; display: inline-flex; align-items: center; gap: 6px; }
+  #kw-selected .chip .x { cursor: pointer; font-weight: 700; opacity: .7; }
+  #kw-selected .chip .x:hover { opacity: 1; }
+  .check-wrap { display: flex; align-items: flex-start; gap: 10px; margin-top: 22px; cursor: pointer; color: var(--ink); font-size: 13.5px; font-weight: 400; }
+  .check-wrap input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .check-wrap b { color: var(--accent); font-weight: 600; }
+  .badge { display: inline-block; background: var(--accent); color: var(--bg); font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-right: 6px; vertical-align: middle; letter-spacing: .3px; }
+  tr.is-default td { background: rgba(212,168,87,.07); }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  .sort-select { width: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; color: var(--ink); font-family: inherit; font-size: 13px; padding: 9px 12px; cursor: pointer; }
+  .sort-select:focus { outline: none; border-color: var(--accent); }
+  .filter-check { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink); cursor: pointer; white-space: nowrap; }
+  .filter-check input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .filter-bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+  .filter-item { display: flex; align-items: center; gap: 8px; }
+  .filter-label { font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+  .filter-suffix { font-size: 12.5px; color: var(--ink-dim); white-space: nowrap; }
+  .filter-input { width: 130px; padding: 8px 10px; font-size: 13px; }
+  .copycols-panel { display: none; margin-bottom: 16px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; }
+  .copycols-panel.show { display: block; }
+  .copycols-title { font-size: 12.5px; font-weight: 600; color: var(--accent); margin-right: 14px; }
+  .copycols-list { display: inline-flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+  .copycols-list label { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 400; color: var(--ink); cursor: pointer; }
+  .copycols-list input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .search { flex: 1; min-width: 180px; }
+  .count { font-size: 13px; color: var(--ink-dim); }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; color: var(--ink-dim); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); letter-spacing: .5px; }
+  td { padding: 13px 12px; border-bottom: 1px solid var(--line); font-size: 13.5px; vertical-align: top; }
+  tr:hover td { background: var(--panel-2); }
+  .time-cell { white-space: nowrap; color: var(--accent); font-weight: 600; }
+  .kw-cell { display: flex; flex-wrap: wrap; gap: 5px; }
+  .kw-cell .chip { font-size: 11px; padding: 2px 9px; }
+  .row-actions { display: flex; gap: 2px; white-space: nowrap; align-items: center; }
+  .icon-btn { background: none; border: none; cursor: pointer; font-size: 15px; padding: 5px 6px; border-radius: 6px; transition: background .15s; color: var(--ink-dim); }
+  .icon-btn.edit { color: var(--blue); }
+  .icon-btn.edit:hover { background: rgba(107,155,208,.15); }
+  .icon-btn.del { color: var(--red); }
+  .icon-btn.del:hover { background: rgba(208,107,94,.15); }
+  .icon-btn.mv:hover { background: var(--panel-2); color: var(--ink); }
+  .icon-btn:disabled { opacity: .25; cursor: default; }
+  .eye-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 5px; border-radius: 6px; color: var(--ink-dim); transition: background .15s; user-select: none; }
+  .eye-btn:hover { background: var(--panel-2); }
+  tr.row-hidden td { opacity: .32; }
+  tr.row-hidden .eye-btn { opacity: 1; }
+  .expand-mark { color: var(--ink-dim); font-size: 11px; }
+  .detail-row td { background: rgba(212,168,87,.05); }
+  .detail-box { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 2px; }
+  .exp-item { font-size: 13px; }
+  .exp-label { color: var(--accent); font-weight: 600; margin-right: 5px; font-size: 12px; }
+  .empty { text-align: center; color: var(--ink-dim); padding: 50px 20px; font-size: 14px; }
+
+  .col-head { cursor: grab; user-select: none; white-space: nowrap; }
+  .col-head:active { cursor: grabbing; }
+  .col-grip { color: var(--ink-dim); margin-right: 5px; font-size: 12px; }
+  th.col-head.dragging { opacity: .4; }
+  th.col-head.drag-over { border-left: 2px solid var(--accent); color: var(--accent); }
+  #p-table-wrap td { word-break: break-word; }
+
+  .edit-row td { background: var(--accent-soft) !important; }
+  .edit-row input, .edit-row textarea { font-size: 13px; padding: 8px 10px; }
+  .edit-grid { display: grid; gap: 8px; }
+
+  .drag-handle { cursor: grab; color: var(--ink-dim); padding: 5px 4px; font-size: 15px; user-select: none; }
+  .drag-handle:active { cursor: grabbing; }
+  tr.dragging { opacity: .4; }
+  tr.drag-over td { border-top: 2px solid var(--accent); }
+
+  .out-result { margin-top: 26px; display: none; }
+  .out-result.show { display: block; animation: fade .4s; }
+  .output-block { background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px; padding: 22px; position: relative; }
+  .output-block .lbl { font-size: 12px; color: var(--ink-dim); margin-bottom: 14px; letter-spacing: .5px; text-transform: uppercase; }
+  #outputText { white-space: pre-wrap; font-size: 14px; line-height: 1.85; }
+  .copy-btn { position: absolute; top: 18px; right: 18px; }
+  .copy-btn.done { background: var(--green); }
+
+  .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--accent); color: var(--bg); padding: 12px 26px; border-radius: 10px; font-weight: 600; font-size: 14px; box-shadow: var(--shadow); opacity: 0; transition: all .3s; z-index: 99; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.err { background: var(--red); }
+  .note { background: rgba(107,155,208,.1); border: 1px solid var(--blue); color: #aecaf0; padding: 13px 16px; border-radius: 9px; font-size: 13px; margin-top: 18px; }
+  .err { background: rgba(208,107,94,.12); border: 1px solid var(--red); color: #f0a99e; padding: 14px; border-radius: 9px; font-size: 13.5px; margin-top: 18px; }
+
+  @media (max-width: 720px) {
+    .ptitle { font-size: 23px; }
+    nav { width: 100%; margin-left: 0; }
+    .tab { flex: 1; padding: 8px 6px; font-size: 12.5px; }
+    .row2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <div class="brand">매칭<span> 시스템</span></div>
+    <nav>
+      <button class="tab active" data-page="input">입력</button>
+      <button class="tab" data-page="history">연혁 데이터베이스</button>
+      <button class="tab" data-page="perf">실적 데이터베이스</button>
+      <button class="tab" data-page="match">매칭</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ===== PAGE 1: 입력 ===== -->
+  <section class="page active" id="page-input">
+    <h1 class="ptitle">데이터 입력</h1>
+    <p class="psub">한 번 입력하면 연혁 데이터베이스와 실적 데이터베이스 양쪽에 저장됩니다. (시기 형식만 다름: 연혁 YY.MM / 실적 YY.MM.DD~)</p>
+    <div class="card">
+      <div class="row2">
+        <div>
+          <label class="first">시기 (시작) <span class="hint">필수</span></label>
+          <input id="in-time" placeholder="2024.01.05  또는  240105">
+          <div class="field-preview" id="time-preview"></div>
+        </div>
+        <div>
+          <label class="first">끝 (종료) <span class="hint">선택</span></label>
+          <input id="in-time-end" placeholder="2024.12.31">
+          <div class="field-preview" id="time-end-preview"></div>
+        </div>
+      </div>
+
+      <label>내용 <span class="hint">필수 · 사업명/실적명</span></label>
+      <textarea id="in-content" placeholder="○○부 데이터 플랫폼 구축 용역"></textarea>
+
+      <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
+      <textarea id="in-detail" placeholder="데이터 아키텍처 설계 및 ETL 파이프라인 개발 총괄, 사업비 절감 30% 달성 등"></textarea>
+
+      <label>키워드 <span class="hint">기존 키워드를 고르거나, 입력 후 Enter로 새 키워드 추가</span></label>
+      <div class="chips" id="kw-selected"></div>
+      <div class="kw-autocomplete">
+        <input id="in-keywords" placeholder="키워드 입력 또는 선택..." autocomplete="off">
+        <div class="kw-suggest" id="kw-suggest"></div>
+      </div>
+      <div class="kw-examples">예시 키워드: <b>연혁 · 선정 · 협력 · 지정 · 인가 · 등록 · 수상</b></div>
+
+      <div class="row2">
+        <div>
+          <label>계약금액 <span class="hint">선택</span></label>
+          <input id="in-amount" placeholder="350,000,000원">
+        </div>
+        <div>
+          <label>발주처 <span class="hint">선택</span></label>
+          <input id="in-client" placeholder="ex.서울신용보증재단">
+        </div>
+      </div>
+
+      <label class="check-wrap">
+        <input type="checkbox" id="in-default">
+        <span><b>연혁으로 지정 (기본 연혁)</b> — 체크하면 연혁 데이터베이스에만 등록되고 실적 데이터베이스에는 표시되지 않습니다. (연혁 DB에서 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.)</span>
+      </label>
+
+      <div class="btn-row">
+        <button class="btn" id="save-btn">저장</button>
+        <button class="btn ghost" id="clear-btn">입력 초기화</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PAGE 2: 연혁 데이터베이스 ===== -->
+  <section class="page" id="page-history">
+    <h1 class="ptitle">연혁 데이터베이스</h1>
+    <p class="psub">실적 데이터베이스와 같은 데이터를 시기 <b>YY.MM</b> 형식으로 봅니다. '연혁으로 지정(기본 연혁)'된 항목은 '기본 포함'을 켜면 검색과 무관하게 항상 표시됩니다.</p>
+    <div class="card">
+      <div class="toolbar">
+        <input class="search" id="h-search" placeholder="시기·내용·키워드 검색...">
+        <select id="h-sort" class="sort-select">
+          <option value="created_desc">입력순 (최신)</option>
+          <option value="created_asc">입력순 (오래된)</option>
+          <option value="year_desc" selected>연도순 (최신)</option>
+          <option value="year_asc">연도순 (오래된)</option>
+        </select>
+        <span class="count" id="h-count">불러오는 중...</span>
+        <label class="filter-check"><input type="checkbox" id="h-include-default"> 기본 포함</label>
+        <button class="btn ghost sm" id="h-paren-btn">괄호 추가</button>
+        <button class="btn sm" id="h-copy-btn">복사하기</button>
+        <button class="btn ghost sm" id="h-refresh-btn">새로고침</button>
+      </div>
+      <div id="h-table-wrap"><div class="empty">불러오는 중...</div></div>
+    </div>
+  </section>
+
+  <!-- ===== PAGE 3: 실적 데이터베이스 ===== -->
+  <section class="page" id="page-perf">
+    <h1 class="ptitle">실적 데이터베이스</h1>
+    <p class="psub">시기는 <b>YY.MM.DD~YY.MM.DD</b> 형식입니다. ('기본 연혁'으로 지정한 항목은 연혁 데이터베이스에만 표시되고 여기에는 나타나지 않습니다.) 표의 <b>열 머리(헤더)를 드래그</b>하면 열 순서를 바꿀 수 있습니다.</p>
+    <div class="card">
+      <div class="toolbar">
+        <input class="search" id="p-search" placeholder="검색...">
+        <select id="p-sort" class="sort-select">
+          <option value="year_desc" selected>연도순 (최신)</option>
+          <option value="year_asc">연도순 (오래된)</option>
+          <option value="created_desc">입력순 (최신)</option>
+          <option value="created_asc">입력순 (오래된)</option>
+        </select>
+        <span class="count" id="p-count">불러오는 중...</span>
+        <button class="btn ghost sm" id="p-colreset-btn">전체 초기화</button>
+        <button class="btn ghost sm" id="p-copycols-btn">열 선택</button>
+        <button class="btn sm" id="p-copy-btn">복사하기</button>
+      </div>
+      <div class="copycols-panel" id="p-copycols-panel">
+        <span class="copycols-title">표시할 열 (끄면 화면·복사에서 숨김 · 내용은 항상 표시)</span>
+        <div class="copycols-list" id="p-copycols-list"></div>
+      </div>
+      <div class="filter-bar">
+        <div class="filter-item">
+          <span class="filter-label">계약금액</span>
+          <input id="p-min-amount" class="filter-input" placeholder="예: 8000 (만원)">
+          <span class="filter-suffix">만원 이상</span>
+        </div>
+        <div class="filter-item">
+          <span class="filter-label">시기</span>
+          <input id="p-min-time" class="filter-input" placeholder="예: 2024.06">
+          <span class="filter-suffix">이후</span>
+        </div>
+        <button class="btn ghost sm" id="p-filter-reset">필터 해제</button>
+      </div>
+      <div class="note" id="p-col-note" style="margin-top:0;margin-bottom:16px">열 머리를 좌우로 드래그해 순서를 바꿀 수 있습니다. 순서는 이 브라우저에 저장됩니다.</div>
+      <div id="p-table-wrap" style="overflow-x:auto"><div class="empty">불러오는 중...</div></div>
+    </div>
+  </section>
+
+  <!-- ===== PAGE 4: 매칭 ===== -->
+  <section class="page" id="page-match">
+    <h1 class="ptitle">제안서 매칭 프롬프트 생성</h1>
+    <p class="psub">제안요청서를 붙여넣으면 저장된 데이터와 합쳐 Claude에게 보낼 프롬프트를 만들어 드립니다. 복사해서 claude.ai 채팅에 붙여넣으면 분석·정리해 줍니다. (추가 비용 없음)</p>
+    <div class="card">
+      <label class="first">제안요청서 / 과업지시서 내용</label>
+      <textarea class="tall" id="rfp-text" placeholder="제안요청서(RFP) 또는 과업지시서 전문을 붙여넣으세요..."></textarea>
+
+      <label>출력 양식 <span class="hint">원하는 연혁 표기 형식 (선택)</span></label>
+      <input id="format-text" placeholder="예: (시기) 사업명 — 주요 수행내용">
+
+      <label class="check-wrap" style="margin-top:18px">
+        <input type="checkbox" id="match-source">
+        <span>연혁 데이터만 사용 (체크 해제 시 실적 데이터 전체를 사용 — 상세내용·금액·발주처 포함)</span>
+      </label>
+
+      <div class="btn-row">
+        <button class="btn" id="gen-prompt-btn">프롬프트 생성</button>
+      </div>
+      <div id="err-box"></div>
+    </div>
+
+    <div class="out-result" id="out-result">
+      <div class="note" style="margin-top:0">아래 내용을 복사해 <b>claude.ai</b> 채팅에 붙여넣으세요.</div>
+      <div class="output-block">
+        <div class="lbl">생성된 프롬프트 (<span id="prompt-count">0</span>건 포함)</div>
+        <button class="btn copy-btn" id="copy-btn">복사하기</button>
+        <div id="outputText"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ helpers ============ */
+const $ = s => document.querySelector(s);
+
+/* ===== 구글 스프레드시트 연동 =====
+   아래 GSHEET_URL 에 Apps Script 웹앱 URL을 붙여넣으면,
+   저장할 때마다 시트에도 새 행이 추가됩니다.
+   비워두면('') 연동 기능이 꺼집니다. */
+const GSHEET_URL = 'https://script.google.com/macros/s/AKfycbyGb1HrH3e0iu3d1E_cwza2XDqVfI8y0fiKWQb2mgo3Tfd1VduEgLP2LXLgKHiA5rTR/exec';
+function sendToSheet(payload){
+  if(!GSHEET_URL) return;
+  // no-cors로 보내고 결과는 신경 쓰지 않음(실패해도 메인 저장에 영향 없음)
+  fetch(GSHEET_URL, {
+    method:'POST', mode:'no-cors',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body:JSON.stringify(payload)
+  }).catch(()=>{});
 }
 
-export function normalizeKeywords(raw) {
-  if (!raw) return "";
-  const cleaned = String(raw).replace(/[\[\]]/g, " ");
-  const arr = cleaned.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
-  return [...new Set(arr)].join(" ");
+function toast(msg, isErr) { const t=$('#toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':''); setTimeout(()=>t.className='toast',1900); }
+function esc(s){ return (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function kwArray(str){ return (str||'').split(/\s+/).filter(Boolean).sort((a,b)=>a.localeCompare(b,'ko')); }
+
+// OR 검색: 검색어를 단어로 나눠 하나라도 포함되면 매치.
+// fields: 대상 문자열들의 배열. q: 소문자 검색어.
+function matchOR(q, fields){
+  if(!q) return true;
+  const hay=fields.map(f=>(f||'').toLowerCase());
+  const terms=q.split(/\s+/).filter(Boolean);
+  if(!terms.length) return true;
+  return terms.some(t => hay.some(h => h.includes(t)));
 }
 
-// 계약금액: 입력에서 금액을 추출해 천단위 쉼표 형식으로. 숫자 없으면 "".
-// "350,000,000원", "3억5천만", "8천만", "5000만" 등 지원.
-export function normalizeAmount(raw) {
-  if (!raw && raw !== 0) return "";
-  let s = String(raw).replace(/,/g, "").replace(/원/g, "").trim();
-  if (!s) return "";
+// 화면 미리보기용 변환 (서버 _lib.js와 동일 규칙)
+function toYMD(raw){
+  if(!raw) return '';
+  const s=String(raw).trim(); if(!s) return '';
+  const parts=s.split(/[^\d]+/).filter(Boolean);
+  if(parts.length>=2){
+    let y=parts[0];
+    let yy=y.length>=4?y.slice(2,4):(y.length===1?'0'+y:y.slice(-2));
+    let m=Math.min(Math.max(parseInt(parts[1],10)||1,1),12);
+    let dy=Math.min(Math.max(parseInt(parts[2]||'1',10)||1,1),31);
+    return yy+'.'+String(m).padStart(2,'0')+'.'+String(dy).padStart(2,'0');
+  }
+  const d=(s.match(/\d/g)||[]).join(''); if(!d.length) return '';
+  let yy='',mm='',dd='';
+  if(d.length>=8){yy=d.slice(2,4);mm=d.slice(4,6);dd=d.slice(6,8);}
+  else if(d.length===7){yy=d.slice(2,4);mm=d.slice(4,6);dd='0'+d.slice(6,7);}
+  else if(d.length===6){ if(d.startsWith('19')||d.startsWith('20')){yy=d.slice(2,4);mm=d.slice(4,6);dd='01';} else {yy=d.slice(0,2);mm=d.slice(2,4);dd=d.slice(4,6);} }
+  else if(d.length===5){ if(d.startsWith('19')||d.startsWith('20')){yy=d.slice(2,4);mm='0'+d.slice(4,5);dd='01';} else {yy=d.slice(0,2);mm=d.slice(2,4);dd='0'+d.slice(4,5);} }
+  else if(d.length===4){ if(d.startsWith('19')||d.startsWith('20')){yy=d.slice(2,4);mm='01';dd='01';} else {yy=d.slice(0,2);mm=d.slice(2,4);dd='01';} }
+  else if(d.length===3){yy=d.slice(0,2);mm='0'+d.slice(2,3);dd='01';}
+  else if(d.length===2){yy=d;mm='01';dd='01';}
+  else {yy='0'+d;mm='01';dd='01';}
+  let m=parseInt(mm,10);if(isNaN(m)||m<1)m=1;if(m>12)m=12;
+  let dy=parseInt(dd,10);if(isNaN(dy)||dy<1)dy=1;if(dy>31)dy=31;
+  return yy+'.'+String(m).padStart(2,'0')+'.'+String(dy).padStart(2,'0');
+}
+function ymOf(ymd){ return ymd ? ymd.slice(0,5) : ''; }  // YY.MM.DD -> YY.MM
+function perfTimeLabel(r){
+  const s=r.time||''; const e=r.time_end||'';
+  if(!s) return '-';
+  return e ? `${s}~${e}` : `${s}~`;
+}
+// 두 줄 표시/복사용: "YY.MM.DD\n~YY.MM.DD" (끝 없으면 "YY.MM.DD\n~")
+function perfTimeLines(r){
+  const s=r.time||''; const e=r.time_end||'';
+  if(!s) return '-';
+  return `${s}\n~${e}`;
+}
+// 연도 정렬용 키 (YY.MM 또는 YY.MM.DD)
+function timeKey(t){
+  const m=(t||'').match(/(\d{2})\.(\d{2})(?:\.(\d{2}))?/);
+  if(!m) return -1;
+  let yy=parseInt(m[1],10);
+  const full=yy<=68?2000+yy:1900+yy;
+  return full*10000 + parseInt(m[2],10)*100 + (m[3]?parseInt(m[3],10):0);
+}
+// 계약금액 텍스트에서 숫자(원 단위) 추출.
+// "350,000,000원", "8000만", "8천만", "3억5천만", "3.5억" 등 지원
+function amountToWon(text){
+  if(!text) return null;
+  let s=String(text).replace(/,/g,'').replace(/원/g,'').trim();
+  if(!s) return null;
 
-  let won = null;
-  if (/[억천만백]/.test(s)) {
-    won = 0;
-    const eok = s.match(/(\d+(?:\.\d+)?)\s*억/);
-    if (eok) won += parseFloat(eok[1]) * 1e8;
-    const cheonman = s.match(/(\d+(?:\.\d+)?)\s*천\s*만/);
-    if (cheonman) won += parseFloat(cheonman[1]) * 1e3 * 1e4;
-    if (!cheonman) {
-      const man = s.match(/(\d+(?:\.\d+)?)\s*만/);
-      if (man) won += parseFloat(man[1]) * 1e4;
+  // 한글 단위가 하나라도 있으면 단위 파싱 모드
+  if(/[억천만백]/.test(s)){
+    let won=0;
+    // 억
+    const eok=s.match(/(\d+(?:\.\d+)?)\s*억/);
+    if(eok) won+=parseFloat(eok[1])*1e8;
+    // 억 뒤 나머지에서 천만/만 처리 (예: 3억5천만, 3억5000만)
+    // "천만" (예: 8천만 = 8*1000만 = 8000만 = 8e7)
+    const cheonman=s.match(/(\d+(?:\.\d+)?)\s*천\s*만/);
+    if(cheonman) won+=parseFloat(cheonman[1])*1e3*1e4;
+    // "천" 단독(만 앞이 아닌) 은 천원 단위로 잘 안 쓰므로 생략
+    // "만" (천만에서 이미 처리된 경우 제외)
+    if(!cheonman){
+      const man=s.match(/(\d+(?:\.\d+)?)\s*만/);
+      if(man) won+=parseFloat(man[1])*1e4;
     }
-    const baekman = s.match(/(\d+(?:\.\d+)?)\s*백\s*만/);
-    if (baekman) won += parseFloat(baekman[1]) * 1e6;
-    if (won <= 0) won = null;
-  } else {
-    const digits = s.replace(/[^\d]/g, "");
-    if (digits) won = parseInt(digits, 10);
+    // 백만
+    const baekman=s.match(/(\d+(?:\.\d+)?)\s*백\s*만/);
+    if(baekman) won+=parseFloat(baekman[1])*1e6;
+    return won>0?Math.round(won):null;
   }
-  if (won === null || isNaN(won)) return "";
-  return String(Math.round(won)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+  // 단위 없으면 숫자 전체를 원으로
+  const digits=s.replace(/[^\d.]/g,'');
+  if(!digits) return null;
+  return Math.round(parseFloat(digits));
+}
+// 사용자가 친 필터 시기(예: 2024.06)를 timeKey 비교용으로
+function filterTimeKey(raw){
+  const ymd=toYMD(raw);
+  return ymd?timeKey(ymd):-1;
 }
 
-export const json = (data, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" }
+/* ============ nav ============ */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    $('#page-'+tab.dataset.page).classList.add('active');
+    if(tab.dataset.page==='history'){ renderHistory(); }
+    if(tab.dataset.page==='perf'){ renderPerf(); }
   });
+});
+
+/* ============ data ============ */
+let cache = [];
+async function loadDB(){
+  try{
+    const res=await fetch('/api/history');
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error);
+    cache=data.items;
+  }catch(e){ console.error(e); }
+  renderHistory(); renderPerf();
+}
+
+/* ============ Page 1: 입력 ============ */
+/* 키워드 자동완성 + 태그 선택 */
+let selectedKw=[];        // 현재 선택된 키워드 배열
+let kwSuggestIdx=-1;      // 키보드 화살표용 활성 인덱스
+
+function allKeywords(){
+  // cache의 모든 키워드를 모아 중복 제거 + 가나다 정렬
+  const set=new Set();
+  cache.forEach(r=>kwArray(r.keywords).forEach(k=>set.add(k)));
+  return [...set].sort((a,b)=>a.localeCompare(b,'ko'));
+}
+function renderSelectedKw(){
+  $('#kw-selected').innerHTML=selectedKw.map(k=>
+    `<span class="chip" data-kw="${esc(k)}">${esc(k)} <span class="x" title="제거">✕</span></span>`
+  ).join('');
+  $('#kw-selected').querySelectorAll('.x').forEach(x=>x.addEventListener('click',e=>{
+    const k=e.target.closest('.chip').dataset.kw;
+    selectedKw=selectedKw.filter(v=>v!==k);
+    renderSelectedKw();
+  }));
+}
+function addKw(k){
+  k=(k||'').trim();
+  if(!k) return;
+  if(!selectedKw.includes(k)) selectedKw.push(k);
+  $('#in-keywords').value='';
+  renderSelectedKw();
+  renderKwSuggest();
+}
+function renderKwSuggest(){
+  const q=$('#in-keywords').value.trim().toLowerCase();
+  const box=$('#kw-suggest');
+  const all=allKeywords().filter(k=>!selectedKw.includes(k));
+  let matches = q ? all.filter(k=>k.toLowerCase().includes(q)) : all;
+  let html='';
+  // 입력값이 기존에 없으면 "새 키워드 추가" 옵션 노출
+  const exact = q && allKeywords().some(k=>k.toLowerCase()===q);
+  if(q && !exact){
+    html+=`<div class="opt" data-new="1">"${esc($('#in-keywords').value.trim())}" <span class="new-tag">+ 새 키워드</span></div>`;
+  }
+  html+=matches.map((k,i)=>`<div class="opt" data-kw="${esc(k)}">${esc(k)}</div>`).join('');
+  if(!html){ box.classList.remove('show'); box.innerHTML=''; return; }
+  box.innerHTML=html;
+  box.classList.add('show');
+  kwSuggestIdx=-1;
+  box.querySelectorAll('.opt').forEach(opt=>opt.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    if(opt.dataset.new) addKw($('#in-keywords').value);
+    else addKw(opt.dataset.kw);
+  }));
+}
+$('#in-keywords').addEventListener('input',renderKwSuggest);
+$('#in-keywords').addEventListener('focus',renderKwSuggest);
+$('#in-keywords').addEventListener('blur',()=>{ setTimeout(()=>$('#kw-suggest').classList.remove('show'),150); });
+$('#in-keywords').addEventListener('keydown',e=>{
+  const box=$('#kw-suggest');
+  const opts=[...box.querySelectorAll('.opt')];
+  if(e.key==='Enter'){
+    e.preventDefault();
+    if(kwSuggestIdx>=0 && opts[kwSuggestIdx]){
+      const opt=opts[kwSuggestIdx];
+      if(opt.dataset.new) addKw($('#in-keywords').value); else addKw(opt.dataset.kw);
+    }else{
+      addKw($('#in-keywords').value); // 입력값 그대로 추가(새 키워드)
+    }
+  }else if(e.key==='ArrowDown'){
+    e.preventDefault(); kwSuggestIdx=Math.min(kwSuggestIdx+1,opts.length-1); updateActive(opts);
+  }else if(e.key==='ArrowUp'){
+    e.preventDefault(); kwSuggestIdx=Math.max(kwSuggestIdx-1,0); updateActive(opts);
+  }else if(e.key==='Backspace' && !$('#in-keywords').value && selectedKw.length){
+    selectedKw.pop(); renderSelectedKw(); renderKwSuggest();
+  }
+});
+function updateActive(opts){
+  opts.forEach((o,i)=>o.classList.toggle('active',i===kwSuggestIdx));
+  if(opts[kwSuggestIdx]) opts[kwSuggestIdx].scrollIntoView({block:'nearest'});
+}
+$('#in-time').addEventListener('input',e=>{
+  const ymd=toYMD(e.target.value);
+  $('#time-preview').innerHTML=ymd?`연혁 <b>${esc(ymOf(ymd))}</b> · 실적 <b>${esc(ymd)}</b>`:'';
+});
+$('#in-time-end').addEventListener('input',e=>{
+  const ymd=toYMD(e.target.value);
+  $('#time-end-preview').innerHTML=ymd?`끝 <b>${esc(ymd)}</b>`:'';
+});
+
+$('#save-btn').addEventListener('click',async()=>{
+  const content=$('#in-content').value.trim();
+  if(!$('#in-time').value.trim()){ toast('시기를 입력하세요',true); return; }
+  if(!content){ toast('내용을 입력하세요',true); return; }
+  const btn=$('#save-btn'); btn.disabled=true;
+  try{
+    const res=await fetch('/api/history',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        time:$('#in-time').value, time_end:$('#in-time-end').value,
+        content, detail:$('#in-detail').value, keywords:[...selectedKw, $('#in-keywords').value.trim()].filter(Boolean).join(' '),
+        amount:$('#in-amount').value, client:$('#in-client').value,
+        is_default:$('#in-default').checked
+      })
+    });
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error||'저장 실패');
+    cache.unshift(data.item);
+    // 구글 시트에 새 행 추가 (단, 기본 연혁은 제외 — 실적만 시트에 기록)
+    if(!data.item.is_default) sendToSheet(data.item);
+    ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
+    selectedKw=[]; renderSelectedKw(); $('#kw-suggest').classList.remove('show');
+    $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
+    toast(data.item.is_default?'저장됨 (기본 연혁으로 지정)':'저장되었습니다');
+  }catch(e){ toast('저장 실패: '+e.message,true); }
+  finally{ btn.disabled=false; }
+});
+$('#clear-btn').addEventListener('click',()=>{
+  ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
+  selectedKw=[]; renderSelectedKw(); $('#kw-suggest').classList.remove('show');
+  $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
+});
+
+/* ============ Page 2: 연혁 DB ============ */
+let hVisible=[];
+let hEditingId=null;
+let hUseParens=false;
+// 임시 숨김(복사 제외) 행 id — 새로고침하면 초기화
+let hHidden=new Set();
+let pHidden=new Set();
+
+// 눈 버튼 드래그 토글: 누른 채 다른 행 위로 지나가면 같은 동작 적용
+// 드래그 중에는 테이블을 다시 그리지 않고 행 모양만 즉시 바꿔, mouseenter가 끊기지 않게 함
+let eyeDragging=false;
+let eyeDragMode=null; // 'hide' | 'show'
+function setupEyeDrag(wrap, btnClass, hiddenSet, rerender){
+  const applyVisual=(tr, id)=>{
+    if(eyeDragMode==='hide'){ hiddenSet.add(id); tr.classList.add('row-hidden'); }
+    else { hiddenSet.delete(id); tr.classList.remove('row-hidden'); }
+    const btn=tr.querySelector('.'+btnClass);
+    if(btn) btn.textContent = hiddenSet.has(id) ? '🙈' : '👁';
+  };
+  wrap.querySelectorAll('.'+btnClass).forEach(b=>{
+    const tr=b.closest('tr');
+    const id=+tr.dataset.id;
+    b.addEventListener('mousedown',e=>{
+      e.preventDefault();
+      eyeDragging=true;
+      eyeDragMode = hiddenSet.has(id) ? 'show' : 'hide';
+      applyVisual(tr, id);
+    });
+    b.addEventListener('mouseenter',()=>{ if(eyeDragging) applyVisual(tr, id); });
+  });
+  // 드래그 종료 시 한 번만 다시 그림
+  wrap._eyeRerender = rerender;
+}
+document.addEventListener('mouseup',()=>{
+  if(eyeDragging){
+    eyeDragging=false; eyeDragMode=null;
+    // 현재 활성 테이블만 다시 그려 정합성 맞춤
+    const hw=$('#h-table-wrap'); const pw=$('#p-table-wrap');
+    if(hw && hw._eyeRerender) hw._eyeRerender();
+    if(pw && pw._eyeRerender) pw._eyeRerender();
+  }
+});
+
+function applySort(arr, sortBy, useTime){
+  arr.sort((a,b)=>{
+    switch(sortBy){
+      case 'created_asc': return a.created_at-b.created_at;
+      case 'year_desc': return timeKey(useTime(b))-timeKey(useTime(a))||b.created_at-a.created_at;
+      case 'year_asc': return timeKey(useTime(a))-timeKey(useTime(b))||a.created_at-b.created_at;
+      case 'created_desc': default: return b.created_at-a.created_at;
+    }
+  });
+  return arr;
+}
+
+function renderHistory(){
+  const q=$('#h-search').value.toLowerCase();
+  const includeDefault=$('#h-include-default').checked;
+  const matchSearch=r=> matchOR(q, [ymOf(r.time), r.content, r.keywords]);
+
+  // 연혁 DB = 전체 항목 표시 (실적 DB와 동일한 데이터, 시기 형식만 YY.MM)
+  let filtered=cache.filter(r=>{
+    // '기본 포함'이 켜져 있으면 연혁 지정(is_default) 항목은 검색과 무관하게 항상 표시
+    if(includeDefault && r.is_default) return true;
+    return matchSearch(r);
+  });
+  applySort(filtered, $('#h-sort').value, r=>ymOf(r.time));
+  hVisible=filtered;
+
+  $('#h-count').textContent=filtered.length+'건';
+  const wrap=$('#h-table-wrap');
+  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?"저장된 데이터가 없습니다. 입력 페이지에서 등록하세요.":"검색 결과가 없습니다."}</div>`; return; }
+
+  let html='<table><thead><tr><th style="width:34px"></th><th style="width:80px">시기</th><th>내용</th><th style="width:200px">키워드</th><th style="width:70px"></th></tr></thead><tbody>';
+  filtered.forEach(r=>{
+    if(hEditingId===r.id){
+      html+=`<tr class="edit-row" data-id="${r.id}"><td colspan="5"><div class="edit-grid">
+        <input class="he-time" value="${esc(r.time)}" placeholder="시기 시작">
+        <textarea class="he-content" style="min-height:50px">${esc(r.content)}</textarea>
+        <input class="he-kw" value="${esc(r.keywords)}" placeholder="키워드 (띄어쓰기)">
+        <label class="filter-check"><input type="checkbox" class="he-default" ${r.is_default?'checked':''}> 연혁으로 지정 (기본 연혁 — '기본 포함' 시 항상 표시)</label>
+        <div class="row-actions"><button class="btn sm he-save">저장</button><button class="btn ghost sm he-cancel">취소</button></div>
+      </div></td></tr>`;
+    }else{
+      const hidden=hHidden.has(r.id);
+      html+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''} ${hidden?'row-hidden':''}">
+        <td><button class="eye-btn h-eye" title="${hidden?'복사 포함':'복사 제외'}">${hidden?'🙈':'👁'}</button></td>
+        <td class="time-cell">${esc(ymOf(r.time))||'-'}</td>
+        <td>${r.is_default?'<span class="badge">연혁</span>':''}${r.client?`[${esc(r.client)}] `:''}${esc(r.content)}</td>
+        <td><div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div></td>
+        <td><div class="row-actions">
+          <button class="icon-btn edit h-edit" title="수정">✎</button>
+          <button class="icon-btn del h-del" title="삭제">✕</button>
+        </div></td></tr>`;
+    }
+  });
+  html+='</tbody></table>';
+  wrap.innerHTML=html;
+
+  setupEyeDrag(wrap, 'h-eye', hHidden, renderHistory);
+
+  wrap.querySelectorAll('.h-edit').forEach(b=>b.addEventListener('click',e=>{ hEditingId=+e.target.closest('tr').dataset.id; renderHistory(); }));
+  wrap.querySelectorAll('.he-cancel').forEach(b=>b.addEventListener('click',()=>{ hEditingId=null; renderHistory(); }));
+  wrap.querySelectorAll('.h-del').forEach(b=>b.addEventListener('click',e=>delItem(+e.target.closest('tr').dataset.id)));
+  wrap.querySelectorAll('.he-save').forEach(b=>b.addEventListener('click',e=>saveHistoryEdit(+e.target.closest('tr').dataset.id)));
+}
+
+async function saveHistoryEdit(id){
+  const row=document.querySelector(`#h-table-wrap tr.edit-row[data-id="${id}"]`);
+  const orig=cache.find(r=>r.id===id)||{};
+  const content=row.querySelector('.he-content').value.trim();
+  if(!content){ toast('내용을 입력하세요',true); return; }
+  await putItem(id,{
+    time:row.querySelector('.he-time').value, time_end:orig.time_end||'',
+    content, detail:orig.detail||'', keywords:row.querySelector('.he-kw').value,
+    amount:orig.amount||'', client:orig.client||'',
+    is_default:row.querySelector('.he-default').checked
+  });
+  hEditingId=null;
+}
+
+/* 괄호 토글 / 복사 (연혁 DB) */
+$('#h-paren-btn').addEventListener('click',()=>{
+  hUseParens=!hUseParens; const b=$('#h-paren-btn');
+  if(hUseParens){ b.classList.remove('ghost'); b.textContent='괄호 추가 ✓'; }
+  else { b.classList.add('ghost'); b.textContent='괄호 추가'; }
+});
+$('#h-copy-btn').addEventListener('click',()=>{
+  const rows=hVisible.filter(r=>!hHidden.has(r.id));
+  if(!rows.length){ toast('복사할 데이터가 없습니다',true); return; }
+  const text=rows.map(r=>{
+    const t=ymOf(r.time)||'-';
+    const tp=hUseParens?`(${t})`:t;
+    const c=(r.client?`[${r.client}] `:'')+r.content;
+    return `${tp} ${c}`;
+  }).join('\n');
+  copyText(text, $('#h-copy-btn'), `${rows.length}건 복사됨 ✓`, '복사하기');
+});
+
+/* ============ Page 3: 실적 DB ============ */
+let pVisible=[];
+let pEditingId=null;
+let pExpanded=new Set();  // 내용 클릭으로 숨긴 열을 펼친 행 id
+
+// 열 정의: key + 표시명 + 셀 렌더 함수
+const PERF_COLS={
+  time:    { label:'시기',   width:'110px', cell:r=>`<span class="time-cell">${esc(perfTimeLines(r)).replace(/\n/g,'<br>')}</span>` },
+  content: { label:'내용',   width:'340px', cell:r=>`${r.is_default?'<span class="badge">연혁</span>':''}${esc(r.content)}` },
+  detail:  { label:'상세',   width:'',      cell:r=>r.detail?esc(r.detail).replace(/\n/g,'<br>'):'<span style="color:var(--ink-dim)">-</span>' },
+  keywords:{ label:'키워드', width:'170px', cell:r=>`<div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div>` },
+  amount:  { label:'계약금액',width:'120px', cell:r=>esc(r.amount)||'<span style="color:var(--ink-dim)">-</span>' },
+  client:  { label:'발주처', width:'120px', cell:r=>esc(r.client)||'<span style="color:var(--ink-dim)">-</span>' },
+};
+const DEFAULT_COL_ORDER=['time','content','detail','keywords','amount','client'];
+
+function loadColOrder(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('perf_col_order')||'null');
+    if(Array.isArray(saved) && saved.length===DEFAULT_COL_ORDER.length &&
+       DEFAULT_COL_ORDER.every(k=>saved.includes(k))) return saved;
+  }catch(e){}
+  return [...DEFAULT_COL_ORDER];
+}
+function saveColOrder(order){ try{ localStorage.setItem('perf_col_order', JSON.stringify(order)); }catch(e){} }
+let pColOrder=loadColOrder();
+
+function renderPerf(){
+  const q=$('#p-search').value.toLowerCase();
+  const sortBy=$('#p-sort').value;
+  const matchSearch=r=> matchOR(q, [perfTimeLabel(r), r.content, r.keywords, r.detail, r.amount, r.client]);
+
+  // 금액 필터: 입력값은 '만원' 단위 → 원으로 환산
+  const minManRaw=$('#p-min-amount').value.trim();
+  const minWon = minManRaw ? (parseFloat(minManRaw.replace(/[^\d.]/g,''))||0)*1e4 : null;
+  // 시기 필터: 이 시기 이후(같거나 큰)
+  const minTimeRaw=$('#p-min-time').value.trim();
+  const minTK = minTimeRaw ? filterTimeKey(minTimeRaw) : null;
+
+  let filtered=cache.filter(r=>{
+    if(r.is_default) return false;   // 기본 연혁은 연혁 DB 전용 → 실적 DB에서 제외
+    if(!matchSearch(r)) return false;
+    if(minWon!==null){
+      const won=amountToWon(r.amount);
+      if(won===null || won<minWon) return false;   // 금액 없거나 미만이면 제외
+    }
+    if(minTK!==null && minTK>0){
+      if(timeKey(r.time) < minTK) return false;     // 기준 시기보다 과거면 제외
+    }
+    return true;
+  });
+  applySort(filtered, sortBy, r=>r.time);
+  pVisible=filtered;
+
+  const activeFilter = (minWon!==null) || (minTK!==null && minTK>0);
+  $('#p-count').textContent = filtered.length+'건' + (activeFilter?' (필터 적용됨)':'');
+  const wrap=$('#p-table-wrap');
+  if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'조건에 맞는 실적이 없습니다.'}</div>`; return; }
+
+  // 표시 열 = 현재 열 순서 중 '켜진' 것만 (내용은 항상 포함)
+  const cols=pColOrder.filter(k=> k==='content' || pCopyCols[k]);
+  // 숨겨진 열(켜지지 않은 열) — 내용 클릭 시 펼쳐 보여줄 대상
+  const hiddenCols=pColOrder.filter(k=> k!=='content' && !pCopyCols[k]);
+  const hasHiddenCols = hiddenCols.length>0;
+  const colCount=cols.length+2; // 눈 열 + 액션열
+
+  // 헤더 (드래그 가능) — 맨 앞 눈 열 추가
+  let head='<tr><th style="width:34px"></th>';
+  cols.forEach(key=>{
+    const c=PERF_COLS[key];
+    head+=`<th class="col-head" draggable="true" data-col="${key}" ${c.width?`style="width:${c.width}"`:''}><span class="col-grip">⠿</span>${c.label}</th>`;
+  });
+  head+='<th style="width:90px"></th></tr>';
+
+  let body='';
+  filtered.forEach(r=>{
+    if(pEditingId===r.id){
+      body+=`<tr class="edit-row" data-id="${r.id}"><td colspan="${colCount}"><div class="edit-grid">
+        <div class="row2"><input class="pe-time" value="${esc(r.time)}" placeholder="시기 시작 (YY.MM.DD)"><input class="pe-time-end" value="${esc(r.time_end)}" placeholder="끝 (선택)"></div>
+        <textarea class="pe-content" style="min-height:46px" placeholder="내용">${esc(r.content)}</textarea>
+        <textarea class="pe-detail" style="min-height:60px" placeholder="상세내용">${esc(r.detail)}</textarea>
+        <input class="pe-kw" value="${esc(r.keywords)}" placeholder="키워드 (띄어쓰기)">
+        <div class="row2"><input class="pe-amount" value="${esc(r.amount)}" placeholder="계약금액"><input class="pe-client" value="${esc(r.client)}" placeholder="발주처"></div>
+        <label class="filter-check"><input type="checkbox" class="pe-default" ${r.is_default?'checked':''}> 연혁으로 지정</label>
+        <div class="row-actions"><button class="btn sm pe-save">저장</button><button class="btn ghost sm pe-cancel">취소</button></div>
+      </div></td></tr>`;
+    }else{
+      const hidden=pHidden.has(r.id);
+      const expanded=pExpanded.has(r.id);
+      body+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''} ${hidden?'row-hidden':''}">`;
+      body+=`<td><button class="eye-btn p-eye" title="${hidden?'복사 포함':'복사 제외'}">${hidden?'🙈':'👁'}</button></td>`;
+      cols.forEach(key=>{
+        if(key==='content' && hasHiddenCols){
+          body+=`<td class="p-content-toggle" title="가려진 항목 펼치기/접기" style="cursor:pointer">${PERF_COLS[key].cell(r)} <span class="expand-mark">${expanded?'▾':'▸'}</span></td>`;
+        }else{
+          body+=`<td>${PERF_COLS[key].cell(r)}</td>`;
+        }
+      });
+      body+=`<td><div class="row-actions">
+        <button class="icon-btn edit p-edit" title="수정">✎</button>
+        <button class="icon-btn del p-del" title="삭제">✕</button>
+      </div></td></tr>`;
+      // 펼침 행: 숨겨진 열들을 라벨과 함께 표시
+      if(hasHiddenCols && expanded){
+        const inner=hiddenCols.map(k=>{
+          const c=PERF_COLS[k];
+          return `<div class="exp-item"><span class="exp-label">${c.label}</span> ${c.cell(r)}</div>`;
+        }).join('');
+        body+=`<tr class="detail-row" data-detail="${r.id}"><td></td><td colspan="${cols.length+1}"><div class="detail-box">${inner}</div></td></tr>`;
+      }
+    }
+  });
+
+  wrap.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+  // 내용 클릭 → 펼치기/접기
+  wrap.querySelectorAll('.p-content-toggle').forEach(td=>td.addEventListener('click',e=>{
+    const id=+e.target.closest('tr').dataset.id;
+    if(pExpanded.has(id)) pExpanded.delete(id); else pExpanded.add(id);
+    renderPerf();
+  }));
+
+  setupEyeDrag(wrap, 'p-eye', pHidden, renderPerf);
+
+  wrap.querySelectorAll('.p-edit').forEach(b=>b.addEventListener('click',e=>{ pEditingId=+e.target.closest('tr').dataset.id; renderPerf(); }));
+  wrap.querySelectorAll('.pe-cancel').forEach(b=>b.addEventListener('click',()=>{ pEditingId=null; renderPerf(); }));
+  wrap.querySelectorAll('.p-del').forEach(b=>b.addEventListener('click',e=>delItem(+e.target.closest('tr').dataset.id)));
+  wrap.querySelectorAll('.pe-save').forEach(b=>b.addEventListener('click',e=>savePerfEdit(+e.target.closest('tr').dataset.id)));
+
+  setupColDrag(wrap);
+}
+
+async function savePerfEdit(id){
+  const row=document.querySelector(`#p-table-wrap tr.edit-row[data-id="${id}"]`);
+  const content=row.querySelector('.pe-content').value.trim();
+  if(!content){ toast('내용을 입력하세요',true); return; }
+  await putItem(id,{
+    time:row.querySelector('.pe-time').value, time_end:row.querySelector('.pe-time-end').value,
+    content, detail:row.querySelector('.pe-detail').value, keywords:row.querySelector('.pe-kw').value,
+    amount:row.querySelector('.pe-amount').value, client:row.querySelector('.pe-client').value,
+    is_default:row.querySelector('.pe-default').checked
+  });
+  pEditingId=null;
+}
+
+/* 열 머리 드래그로 순서 변경 */
+let dragCol=null;
+function setupColDrag(wrap){
+  wrap.querySelectorAll('th.col-head').forEach(th=>{
+    th.addEventListener('dragstart',()=>{ dragCol=th.dataset.col; th.classList.add('dragging'); });
+    th.addEventListener('dragend',()=>{ th.classList.remove('dragging'); wrap.querySelectorAll('th').forEach(t=>t.classList.remove('drag-over')); });
+    th.addEventListener('dragover',e=>{ e.preventDefault(); th.classList.add('drag-over'); });
+    th.addEventListener('dragleave',()=>th.classList.remove('drag-over'));
+    th.addEventListener('drop',e=>{
+      e.preventDefault();
+      const targetCol=th.dataset.col;
+      if(!dragCol||dragCol===targetCol) return;
+      const order=[...pColOrder];
+      const from=order.indexOf(dragCol), to=order.indexOf(targetCol);
+      order.splice(to,0,order.splice(from,1)[0]);
+      pColOrder=order; saveColOrder(order);
+      renderPerf();
+    });
+  });
+}
+$('#p-colreset-btn').addEventListener('click',()=>{
+  // 열 순서 초기화
+  pColOrder=[...DEFAULT_COL_ORDER]; saveColOrder(pColOrder);
+  // 복사 포함 열 모두 켜기
+  DEFAULT_COL_ORDER.forEach(k=>pCopyCols[k]=true); saveCopyCols();
+  // 눈 버튼(임시 숨김) 모두 해제
+  pHidden.clear();
+  pExpanded.clear();
+  // 복사 열 선택 패널이 열려 있으면 체크 상태도 갱신
+  if($('#p-copycols-panel').classList.contains('show')) renderCopyColsPanel();
+  renderPerf();
+  toast('열 순서·복사 열·숨김을 모두 초기화했습니다');
+});
+
+/* 복사에 포함할 열 (true면 포함) — 브라우저에 저장 */
+function loadCopyCols(){
+  try{
+    const saved=JSON.parse(localStorage.getItem('perf_copy_cols')||'null');
+    if(saved && typeof saved==='object'){
+      const out={};
+      DEFAULT_COL_ORDER.forEach(k=>{ out[k] = saved[k]!==false; }); // 기본 포함
+      out.content=true; // 내용은 항상 표시
+      return out;
+    }
+  }catch(e){}
+  const out={}; DEFAULT_COL_ORDER.forEach(k=>out[k]=true); return out;
+}
+function saveCopyCols(){ pCopyCols.content=true; try{ localStorage.setItem('perf_copy_cols', JSON.stringify(pCopyCols)); }catch(e){} }
+let pCopyCols=loadCopyCols();
+
+function renderCopyColsPanel(){
+  const list=$('#p-copycols-list');
+  list.innerHTML=DEFAULT_COL_ORDER.map(k=>{
+    const always = k==='content';
+    return `<label><input type="checkbox" data-col="${k}" ${pCopyCols[k]?'checked':''} ${always?'disabled':''}> ${PERF_COLS[k].label}${always?' (항상)':''}</label>`;
+  }).join('');
+  list.querySelectorAll('input').forEach(cb=>cb.addEventListener('change',e=>{
+    pCopyCols[e.target.dataset.col]=e.target.checked; saveCopyCols();
+    renderPerf(); // 화면 표에도 즉시 반영
+  }));
+}
+$('#p-copycols-btn').addEventListener('click',()=>{
+  const panel=$('#p-copycols-panel');
+  panel.classList.toggle('show');
+  if(panel.classList.contains('show')) renderCopyColsPanel();
+});
+
+/* 실적 DB 복사: 현재 보이는 순서 + 현재 열 순서, 단 복사 포함으로 켠 열만 */
+function perfPlain(r, key){
+  switch(key){
+    case 'time': return perfTimeLines(r);   // 두 줄 (YY.MM.DD \n ~YY.MM.DD)
+    case 'content': return r.content||'';
+    case 'detail': return (r.detail||'').replace(/\n/g,' ');
+    case 'keywords': return kwArray(r.keywords).join(', ');
+    case 'amount': return r.amount||'';
+    case 'client': return r.client||'';
+    default: return '';
+  }
+}
+$('#p-copy-btn').addEventListener('click',()=>{
+  const rows=pVisible.filter(r=>!pHidden.has(r.id));
+  if(!rows.length){ toast('복사할 데이터가 없습니다',true); return; }
+  const cols=pColOrder.filter(k=>pCopyCols[k]);   // 켠 열만, 현재 순서대로
+  if(!cols.length){ toast('복사할 열이 없습니다. 복사 열 선택을 확인하세요.',true); return; }
+  // 시기 열만 줄바꿈 보존, 나머지는 줄바꿈/탭을 공백으로 정리
+  const cell=(r,k)=>{
+    let v=String(perfPlain(r,k));
+    if(k==='time') return v.replace(/\t/g,' ');           // 줄바꿈 유지
+    return v.replace(/[\t\n\r]+/g,' ').trim();
+  };
+  // 탭 텍스트: 줄바꿈 든 셀은 따옴표로 감싸 엑셀이 셀 안 줄바꿈으로 인식
+  const tsvCell=v=>/[\n"]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+  const matrix=rows.map(r=>cols.map(k=>cell(r,k)));
+  const text=matrix.map(row=>row.map(tsvCell).join('\t')).join('\n');
+  const html=rowsToHtmlTable(matrix);
+  copyText(text, $('#p-copy-btn'), `${rows.length}건 복사됨 ✓`, '복사하기', html);
+});
+
+/* ============ 공용 수정/삭제 ============ */
+async function putItem(id, payload){
+  try{
+    const res=await fetch('/api/history/'+id,{ method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error);
+    const idx=cache.findIndex(r=>r.id===id);
+    if(idx>=0) cache[idx]={...cache[idx], ...data.item};
+    renderHistory(); renderPerf();
+    toast('수정되었습니다');
+  }catch(e){ toast('수정 실패: '+e.message,true); }
+}
+async function delItem(id){
+  if(!confirm('이 항목을 삭제할까요? (연혁·실적 양쪽에서 삭제됩니다)')) return;
+  try{
+    const res=await fetch('/api/history/'+id,{ method:'DELETE' });
+    const data=await res.json();
+    if(!data.ok) throw new Error(data.error);
+    cache=cache.filter(r=>r.id!==id);
+    renderHistory(); renderPerf();
+    toast('삭제되었습니다');
+  }catch(e){ toast('삭제 실패: '+e.message,true); }
+}
+
+/* ============ 공용 복사 ============ */
+function copyText(text, btn, doneLabel, origLabel, html){
+  const done=()=>{ btn.textContent=doneLabel; btn.style.background='var(--green)'; setTimeout(()=>{ btn.textContent=origLabel; btn.style.background=''; },1800); };
+  const plainFallback=()=>{
+    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+  };
+  // HTML 표가 함께 주어지면 text/plain + text/html 둘 다 클립보드에 담음
+  // (한글·엑셀·구글시트가 '표'로 인식하여 셀에 나눠 붙여넣음)
+  if(html && window.ClipboardItem && navigator.clipboard && navigator.clipboard.write){
+    try{
+      const item=new ClipboardItem({
+        'text/plain': new Blob([text], {type:'text/plain'}),
+        'text/html': new Blob([html], {type:'text/html'})
+      });
+      navigator.clipboard.write([item]).then(done).catch(()=>{
+        navigator.clipboard.writeText(text).then(done).catch(plainFallback);
+      });
+      return;
+    }catch(e){ /* 아래로 폴백 */ }
+  }
+  navigator.clipboard.writeText(text).then(done).catch(plainFallback);
+}
+
+// 행 배열을 HTML 표로 (각 행은 셀 값 배열)
+function rowsToHtmlTable(rows){
+  const e=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])).replace(/\n/g,'<br>');
+  const body=rows.map(cells=>
+    '<tr>'+cells.map(c=>`<td>${e(c)}</td>`).join('')+'</tr>'
+  ).join('');
+  return `<table border="1" cellspacing="0" cellpadding="4">${body}</table>`;
+}
+
+/* search/sort listeners */
+$('#h-search').addEventListener('input',renderHistory);
+$('#h-sort').addEventListener('change',renderHistory);
+$('#h-include-default').addEventListener('change',renderHistory);
+$('#h-refresh-btn').addEventListener('click',loadDB);
+$('#p-search').addEventListener('input',renderPerf);
+$('#p-sort').addEventListener('change',renderPerf);
+$('#p-min-amount').addEventListener('input',renderPerf);
+$('#p-min-time').addEventListener('input',renderPerf);
+$('#p-filter-reset').addEventListener('click',()=>{
+  $('#p-min-amount').value=''; $('#p-min-time').value=''; renderPerf();
+});
+
+/* ============ Page 4: 매칭 프롬프트 ============ */
+$('#gen-prompt-btn').addEventListener('click',async()=>{
+  const rfp=$('#rfp-text').value.trim();
+  const fmt=$('#format-text').value.trim();
+  const errBox=$('#err-box'); errBox.innerHTML='';
+  if(!rfp){ toast('제안요청서 내용을 입력하세요',true); return; }
+  if(!cache.length){ await loadDB(); }
+  if(!cache.length){ errBox.innerHTML='<div class="err">저장된 데이터가 없습니다. 먼저 입력 페이지에서 등록하세요.</div>'; return; }
+
+  const historyOnly=$('#match-source').checked;
+  const rows=historyOnly?cache.filter(r=>r.is_default):cache;
+  if(!rows.length){ errBox.innerHTML='<div class="err">포함할 데이터가 없습니다. (연혁 데이터만 사용 체크를 해제해 보세요.)</div>'; return; }
+
+  const listText=rows.map(r=>{
+    if(historyOnly){
+      const t=ymOf(r.time)||'-';
+      const kw=kwArray(r.keywords).join(', ');
+      return `- (${t}) ${r.content}${kw?` [키워드: ${kw}]`:''}`;
+    }else{
+      const t=perfTimeLabel(r);
+      const kw=kwArray(r.keywords).join(', ');
+      let line=`- (${t}) ${r.content}`;
+      if(r.detail) line+=`\n    · 상세: ${r.detail.replace(/\n/g,' ')}`;
+      if(r.amount) line+=`\n    · 계약금액: ${r.amount}`;
+      if(r.client) line+=`\n    · 발주처: ${r.client}`;
+      if(kw) line+=`\n    · 키워드: ${kw}`;
+      return line;
+    }
+  }).join('\n');
+
+  const fmtLine=fmt
+    ? `\n[출력 양식] 선정한 실적은 반드시 다음 형식으로 정리해줘:\n${fmt}\n`
+    : `\n[출력 양식] 선정한 실적은 "(시기) 사업명 — 주요 수행내용" 형태로 한 줄씩 정리해줘.\n`;
+
+  const prompt=
+`너는 정부 용역사업 제안서 작성 전문가야. 아래 [제안요청서]를 분석하고, [보유 ${historyOnly?'연혁':'실적'}] 중에서 이 사업에 적합한 실적만 골라 제안서에 넣을 형태로 정리해줘.
+
+다음 순서로 답해줘:
+1) 사업 내용 요약 (2~3문장)
+2) 이 사업이 제안사에 요구하는 핵심 역량
+3) 적합한 실적 선정 및 정리
+${fmtLine}
+[제안요청서]
+${rfp}
+
+[보유 ${historyOnly?'연혁':'실적'}]
+${listText}`;
+
+  $('#outputText').textContent=prompt;
+  $('#prompt-count').textContent=rows.length;
+  $('#out-result').classList.add('show');
+  $('#out-result').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('프롬프트가 생성되었습니다');
+});
+$('#copy-btn').addEventListener('click',()=>{
+  const text=$('#outputText').textContent;
+  if(!text){ toast('먼저 프롬프트를 생성하세요',true); return; }
+  const btn=$('#copy-btn');
+  const done=()=>{ btn.textContent='복사 완료 ✓'; btn.classList.add('done'); setTimeout(()=>{ btn.textContent='복사하기'; btn.classList.remove('done'); },1800); };
+  navigator.clipboard.writeText(text).then(done).catch(()=>{
+    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+  });
+});
+
+/* init */
+loadDB();
+</script>
+</body>
+</html>
