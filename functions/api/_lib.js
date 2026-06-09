@@ -71,6 +71,35 @@ export function normalizeKeywords(raw) {
   return [...new Set(arr)].join(" ");
 }
 
+// 계약금액: 입력에서 금액을 추출해 천단위 쉼표 형식으로. 숫자 없으면 "".
+// "350,000,000원", "3억5천만", "8천만", "5000만" 등 지원.
+export function normalizeAmount(raw) {
+  if (!raw && raw !== 0) return "";
+  let s = String(raw).replace(/,/g, "").replace(/원/g, "").trim();
+  if (!s) return "";
+
+  let won = null;
+  if (/[억천만백]/.test(s)) {
+    won = 0;
+    const eok = s.match(/(\d+(?:\.\d+)?)\s*억/);
+    if (eok) won += parseFloat(eok[1]) * 1e8;
+    const cheonman = s.match(/(\d+(?:\.\d+)?)\s*천\s*만/);
+    if (cheonman) won += parseFloat(cheonman[1]) * 1e3 * 1e4;
+    if (!cheonman) {
+      const man = s.match(/(\d+(?:\.\d+)?)\s*만/);
+      if (man) won += parseFloat(man[1]) * 1e4;
+    }
+    const baekman = s.match(/(\d+(?:\.\d+)?)\s*백\s*만/);
+    if (baekman) won += parseFloat(baekman[1]) * 1e6;
+    if (won <= 0) won = null;
+  } else {
+    const digits = s.replace(/[^\d]/g, "");
+    if (digits) won = parseInt(digits, 10);
+  }
+  if (won === null || isNaN(won)) return "";
+  return String(Math.round(won)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
