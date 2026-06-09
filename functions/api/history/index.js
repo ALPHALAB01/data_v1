@@ -4,7 +4,7 @@ import { normalizeYMD, normalizeKeywords, normalizeAmount, json } from "../_lib.
 export async function onRequestGet({ env }) {
   try {
     const { results } = await env.DB.prepare(
-      "SELECT id, time, time_end, content, detail, keywords, amount, client, is_default, hidden_in_history, sort_order, created_at FROM history ORDER BY created_at DESC"
+      "SELECT id, time, time_end, content, detail, keywords, amount, client, is_default, hidden_in_history, status, sort_order, created_at FROM history ORDER BY created_at DESC"
     ).all();
     return json({ ok: true, items: results || [] });
   } catch (e) {
@@ -29,20 +29,21 @@ export async function onRequestPost({ request, env }) {
     const amount = normalizeAmount(body.amount || "");
     const client = (body.client || "").trim();
     const isDefault = body.is_default ? 1 : 0;
+    const status = isDefault ? "" : (body.status === "선정" || body.status === "탈락" ? body.status : "");
     const now = Date.now();
 
     // 새 항목은 sort_order를 가장 뒤(큰 값)로
     let nextSort = now;
 
     const res = await env.DB.prepare(
-      "INSERT INTO history (time, time_end, content, detail, keywords, amount, client, is_default, hidden_in_history, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).bind(startYMD, endYMD, content, detail, keywords, amount, client, isDefault, 0, nextSort, now).run();
+      "INSERT INTO history (time, time_end, content, detail, keywords, amount, client, is_default, hidden_in_history, status, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(startYMD, endYMD, content, detail, keywords, amount, client, isDefault, 0, status, nextSort, now).run();
 
     return json({
       ok: true,
       item: {
         id: res.meta.last_row_id, time: startYMD, time_end: endYMD, content, detail,
-        keywords, amount, client, is_default: isDefault, hidden_in_history: 0, sort_order: nextSort, created_at: now
+        keywords, amount, client, is_default: isDefault, hidden_in_history: 0, status, sort_order: nextSort, created_at: now
       }
     });
   } catch (e) {
