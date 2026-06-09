@@ -65,13 +65,18 @@
   .chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 4px 12px; border-radius: 20px; }
   .kw-examples { margin-top: 9px; font-size: 12px; color: var(--ink-dim); }
   .kw-examples b { color: var(--ink); font-weight: 500; }
-  .kw-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; max-height: 200px; overflow-y: auto; padding: 2px; }
-  .kw-pool:empty::after { content: '아직 키워드가 없습니다. 아래에서 새로 추가하세요.'; color: var(--ink-dim); font-size: 13px; }
+  .kw-pool { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; max-height: 200px; overflow-y: auto; padding: 2px; }
+  .kw-pool:empty::after { content: '아직 키워드가 없습니다. 위에 입력해 추가하세요.'; color: var(--ink-dim); font-size: 13px; }
   .kw-chip { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); font-size: 12.5px; font-weight: 500; padding: 5px 13px; border-radius: 20px; cursor: pointer; transition: all .15s; user-select: none; }
   .kw-chip:hover { filter: brightness(1.15); }
   .kw-chip.selected { background: transparent; color: var(--ink-dim); border-color: var(--line); opacity: .55; }
-  .kw-add-row { display: flex; gap: 8px; }
-  .kw-add-row input { flex: 1; }
+  .kw-box { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 10px; cursor: text; }
+  .kw-box:focus-within { border-color: var(--accent); }
+  .kw-box input { flex: 1; min-width: 120px; background: none; border: none; padding: 4px 2px; color: var(--ink); font-family: inherit; font-size: 14px; }
+  .kw-box input:focus { outline: none; }
+  .kw-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: var(--bg); font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
+  .kw-tag .x { cursor: pointer; opacity: .8; font-weight: 700; }
+  .kw-tag .x:hover { opacity: 1; }
   .check-wrap { display: flex; align-items: flex-start; gap: 10px; margin-top: 22px; cursor: pointer; color: var(--ink); font-size: 13.5px; font-weight: 400; }
   .check-wrap input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
   .check-wrap b { color: var(--accent); font-weight: 600; }
@@ -200,12 +205,11 @@
       <label>상세내용 <span class="hint">선택 · 역할, 성과 등</span></label>
       <textarea id="in-detail" placeholder="데이터 아키텍처 설계 및 ETL 파이프라인 개발 총괄, 사업비 절감 30% 달성 등"></textarea>
 
-      <label>키워드 <span class="hint">아래 키워드를 클릭해 선택 · 없으면 새로 입력해 추가</span></label>
-      <div class="kw-pool" id="kw-pool"></div>
-      <div class="kw-add-row">
-        <input id="in-keywords" placeholder="새 키워드 입력 후 Enter" autocomplete="off">
-        <button type="button" class="btn ghost sm" id="kw-add-btn">추가</button>
+      <label>키워드 <span class="hint">아래에서 클릭해 선택 · 입력해 검색(초성 가능) · 없으면 Enter로 새로 추가</span></label>
+      <div class="kw-box" id="kw-box">
+        <span id="kw-tags"></span><input id="in-keywords" placeholder="키워드 검색 또는 추가..." autocomplete="off">
       </div>
+      <div class="kw-pool" id="kw-pool"></div>
 
       <div class="row2">
         <div>
@@ -474,20 +478,65 @@ async function loadDB(){
 }
 
 /* ============ Page 1: 입력 ============ */
-/* 키워드: 기존 키워드를 칩으로 나열 → 클릭해 선택/해제. 새 키워드는 입력칸으로 추가 */
-let selectedKw=[];        // 현재 선택된 키워드 배열
+/* 키워드: 리스트에서 클릭 선택, 입력창에 태그 표시, 초성 검색, 새 키워드 추가 */
+let selectedKw=[];        // 선택된 키워드
 let extraKw=[];           // 이번에 새로 추가한(아직 DB에 없던) 키워드
 
+// 한글 초성 추출: 문자열 → 초성 문자열 (한글 아닌 글자는 그대로)
+const CHOSEONG=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function toChoseong(str){
+  let out='';
+  for(const ch of String(str)){
+    const code=ch.charCodeAt(0);
+    if(code>=0xAC00 && code<=0xD7A3){
+      out+=CHOSEONG[Math.floor((code-0xAC00)/588)];
+    }else out+=ch;
+  }
+  return out;
+}
+// 검색어가 전부 초성으로만 이뤄졌는지
+function isAllChoseong(q){ return q.length>0 && [...q].every(c=>CHOSEONG.includes(c)); }
+
 function allKeywords(){
-  // cache의 모든 키워드 + 이번에 새로 추가한 것 → 중복 제거 + 가나다 정렬
   const set=new Set();
   cache.forEach(r=>kwArray(r.keywords).forEach(k=>set.add(k)));
   extraKw.forEach(k=>set.add(k));
-  return [...set].sort((a,b)=>a.localeCompare(b,'ko'));
+  return [...set];
+}
+function keywordsByFrequency(){
+  const freq=new Map();
+  cache.forEach(r=>kwArray(r.keywords).forEach(k=>freq.set(k,(freq.get(k)||0)+1)));
+  extraKw.forEach(k=>{ if(!freq.has(k)) freq.set(k,0); });
+  return [...freq.keys()].sort((a,b)=>{
+    const d=(freq.get(b)||0)-(freq.get(a)||0);
+    return d!==0 ? d : a.localeCompare(b,'ko');
+  });
+}
+function renderKwTags(){
+  $('#kw-tags').innerHTML=selectedKw.map(k=>
+    `<span class="kw-tag" data-kw="${esc(k)}">${esc(k)}<span class="x" title="제거">✕</span></span>`
+  ).join('');
+  $('#kw-tags').querySelectorAll('.x').forEach(x=>x.addEventListener('click',e=>{
+    e.stopPropagation();
+    const k=e.target.closest('.kw-tag').dataset.kw;
+    selectedKw=selectedKw.filter(v=>v!==k);
+    renderKwTags(); renderKwPool();
+  }));
 }
 function renderKwPool(){
+  const q=$('#in-keywords').value.trim().toLowerCase();
+  let list=keywordsByFrequency();
+  if(q){
+    const choMode=isAllChoseong(q);
+    list=list.filter(k=>{
+      const kl=k.toLowerCase();
+      if(kl.includes(q)) return true;            // 일반 부분일치
+      if(choMode) return toChoseong(k).startsWith(q); // 초성: 앞에서부터 매칭
+      return false;
+    });
+  }
   const pool=$('#kw-pool');
-  pool.innerHTML=allKeywords().map(k=>{
+  pool.innerHTML=list.map(k=>{
     const sel=selectedKw.includes(k);
     return `<span class="kw-chip ${sel?'selected':''}" data-kw="${esc(k)}">${esc(k)}</span>`;
   }).join('');
@@ -495,23 +544,39 @@ function renderKwPool(){
     const k=ch.dataset.kw;
     if(selectedKw.includes(k)) selectedKw=selectedKw.filter(v=>v!==k);
     else selectedKw.push(k);
-    renderKwPool();
+    $('#in-keywords').value='';   // 선택하면 검색어 비우고 전체 리스트로
+    renderKwTags(); renderKwPool();
+    $('#in-keywords').focus();
   }));
 }
 function addNewKw(){
   const v=$('#in-keywords').value.trim();
-  if(!v){ return; }
-  // 공백으로 여러 개 입력해도 분리
+  if(!v) return;
   kwArray(v).forEach(k=>{
     if(!extraKw.includes(k) && !allKeywords().includes(k)) extraKw.push(k);
     if(!selectedKw.includes(k)) selectedKw.push(k);
   });
   $('#in-keywords').value='';
-  renderKwPool();
+  renderKwTags(); renderKwPool();
 }
-$('#kw-add-btn').addEventListener('click',addNewKw);
+$('#kw-box').addEventListener('click',()=>$('#in-keywords').focus());
+$('#in-keywords').addEventListener('input',renderKwPool);
 $('#in-keywords').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){ e.preventDefault(); addNewKw(); }
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const q=$('#in-keywords').value.trim();
+    if(!q) return;
+    // 검색 결과 중 정확히 일치하는 게 있으면 그걸 선택, 없으면 새로 추가
+    const exact=allKeywords().find(k=>k.toLowerCase()===q.toLowerCase());
+    if(exact){
+      if(!selectedKw.includes(exact)) selectedKw.push(exact);
+      $('#in-keywords').value=''; renderKwTags(); renderKwPool();
+    }else{
+      addNewKw();
+    }
+  }else if(e.key==='Backspace' && !$('#in-keywords').value && selectedKw.length){
+    selectedKw.pop(); renderKwTags(); renderKwPool();
+  }
 });
 
 $('#in-time').addEventListener('input',e=>{
@@ -544,7 +609,7 @@ $('#save-btn').addEventListener('click',async()=>{
     // 구글 시트에 새 행 추가 (단, 기본 연혁은 제외 — 실적만 시트에 기록)
     if(!data.item.is_default) sendToSheet(data.item);
     ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
-    selectedKw=[]; extraKw=[]; renderKwPool();
+    selectedKw=[]; extraKw=[]; renderKwTags(); renderKwPool();
     $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
     toast(data.item.is_default?'저장됨 (기본 연혁으로 지정)':'저장되었습니다');
   }catch(e){ toast('저장 실패: '+e.message,true); }
@@ -552,7 +617,7 @@ $('#save-btn').addEventListener('click',async()=>{
 });
 $('#clear-btn').addEventListener('click',()=>{
   ['in-time','in-time-end','in-content','in-detail','in-keywords','in-amount','in-client'].forEach(id=>$('#'+id).value='');
-  selectedKw=[]; extraKw=[]; renderKwPool();
+  selectedKw=[]; extraKw=[]; renderKwTags(); renderKwPool();
   $('#in-default').checked=false; $('#time-preview').innerHTML=''; $('#time-end-preview').innerHTML='';
 });
 
