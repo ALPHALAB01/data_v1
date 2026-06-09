@@ -105,6 +105,10 @@
   .icon-btn.del:hover { background: rgba(208,107,94,.15); }
   .icon-btn.mv:hover { background: var(--panel-2); color: var(--ink); }
   .icon-btn:disabled { opacity: .25; cursor: default; }
+  .eye-btn { background: none; border: none; cursor: pointer; font-size: 14px; padding: 4px 5px; border-radius: 6px; color: var(--ink-dim); transition: background .15s; }
+  .eye-btn:hover { background: var(--panel-2); }
+  tr.row-hidden td { opacity: .32; }
+  tr.row-hidden .eye-btn { opacity: 1; }
   .empty { text-align: center; color: var(--ink-dim); padding: 50px 20px; font-size: 14px; }
 
   .col-head { cursor: grab; user-select: none; white-space: nowrap; }
@@ -496,6 +500,9 @@ $('#clear-btn').addEventListener('click',()=>{
 let hVisible=[];
 let hEditingId=null;
 let hUseParens=false;
+// 임시 숨김(복사 제외) 행 id — 새로고침하면 초기화
+let hHidden=new Set();
+let pHidden=new Set();
 
 function applySort(arr, sortBy, useTime){
   arr.sort((a,b)=>{
@@ -527,10 +534,10 @@ function renderHistory(){
   const wrap=$('#h-table-wrap');
   if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?"저장된 데이터가 없습니다. 입력 페이지에서 등록하세요.":"검색 결과가 없습니다."}</div>`; return; }
 
-  let html='<table><thead><tr><th style="width:80px">시기</th><th>내용</th><th style="width:200px">키워드</th><th style="width:70px"></th></tr></thead><tbody>';
+  let html='<table><thead><tr><th style="width:34px"></th><th style="width:80px">시기</th><th>내용</th><th style="width:200px">키워드</th><th style="width:70px"></th></tr></thead><tbody>';
   filtered.forEach(r=>{
     if(hEditingId===r.id){
-      html+=`<tr class="edit-row" data-id="${r.id}"><td colspan="4"><div class="edit-grid">
+      html+=`<tr class="edit-row" data-id="${r.id}"><td colspan="5"><div class="edit-grid">
         <input class="he-time" value="${esc(r.time)}" placeholder="시기 시작">
         <textarea class="he-content" style="min-height:50px">${esc(r.content)}</textarea>
         <input class="he-kw" value="${esc(r.keywords)}" placeholder="키워드 (띄어쓰기)">
@@ -538,9 +545,11 @@ function renderHistory(){
         <div class="row-actions"><button class="btn sm he-save">저장</button><button class="btn ghost sm he-cancel">취소</button></div>
       </div></td></tr>`;
     }else{
-      html+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''}">
+      const hidden=hHidden.has(r.id);
+      html+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''} ${hidden?'row-hidden':''}">
+        <td><button class="eye-btn h-eye" title="${hidden?'복사 포함':'복사 제외'}">${hidden?'🙈':'👁'}</button></td>
         <td class="time-cell">${esc(ymOf(r.time))||'-'}</td>
-        <td>${r.is_default?'<span class="badge">연혁</span>':''}${esc(r.content)}</td>
+        <td>${r.is_default?'<span class="badge">연혁</span>':''}${r.client?`[${esc(r.client)}] `:''}${esc(r.content)}</td>
         <td><div class="kw-cell">${kwArray(r.keywords).map(k=>`<span class="chip">${esc(k)}</span>`).join('')}</div></td>
         <td><div class="row-actions">
           <button class="icon-btn edit h-edit" title="수정">✎</button>
@@ -550,6 +559,12 @@ function renderHistory(){
   });
   html+='</tbody></table>';
   wrap.innerHTML=html;
+
+  wrap.querySelectorAll('.h-eye').forEach(b=>b.addEventListener('click',e=>{
+    const id=+e.target.closest('tr').dataset.id;
+    if(hHidden.has(id)) hHidden.delete(id); else hHidden.add(id);
+    renderHistory();
+  }));
 
   wrap.querySelectorAll('.h-edit').forEach(b=>b.addEventListener('click',e=>{ hEditingId=+e.target.closest('tr').dataset.id; renderHistory(); }));
   wrap.querySelectorAll('.he-cancel').forEach(b=>b.addEventListener('click',()=>{ hEditingId=null; renderHistory(); }));
@@ -578,13 +593,15 @@ $('#h-paren-btn').addEventListener('click',()=>{
   else { b.classList.add('ghost'); b.textContent='괄호 추가'; }
 });
 $('#h-copy-btn').addEventListener('click',()=>{
-  if(!hVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
-  const text=hVisible.map(r=>{
+  const rows=hVisible.filter(r=>!hHidden.has(r.id));
+  if(!rows.length){ toast('복사할 데이터가 없습니다',true); return; }
+  const text=rows.map(r=>{
     const t=ymOf(r.time)||'-';
     const tp=hUseParens?`(${t})`:t;
-    return `${tp} ${r.content}`;
+    const c=(r.client?`[${r.client}] `:'')+r.content;
+    return `${tp} ${c}`;
   }).join('\n');
-  copyText(text, $('#h-copy-btn'), `${hVisible.length}건 복사됨 ✓`, '복사하기');
+  copyText(text, $('#h-copy-btn'), `${rows.length}건 복사됨 ✓`, '복사하기');
 });
 
 /* ============ Page 3: 실적 DB ============ */
@@ -646,10 +663,10 @@ function renderPerf(){
   if(!filtered.length){ wrap.innerHTML=`<div class="empty">${cache.length===0?'저장된 데이터가 없습니다.':'조건에 맞는 실적이 없습니다.'}</div>`; return; }
 
   const cols=pColOrder;
-  const colCount=cols.length+1; // +액션열
+  const colCount=cols.length+2; // 눈 열 + 액션열
 
-  // 헤더 (드래그 가능)
-  let head='<tr>';
+  // 헤더 (드래그 가능) — 맨 앞 눈 열 추가
+  let head='<tr><th style="width:34px"></th>';
   cols.forEach(key=>{
     const c=PERF_COLS[key];
     head+=`<th class="col-head" draggable="true" data-col="${key}" ${c.width?`style="width:${c.width}"`:''}><span class="col-grip">⠿</span>${c.label}</th>`;
@@ -669,7 +686,9 @@ function renderPerf(){
         <div class="row-actions"><button class="btn sm pe-save">저장</button><button class="btn ghost sm pe-cancel">취소</button></div>
       </div></td></tr>`;
     }else{
-      body+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''}">`;
+      const hidden=pHidden.has(r.id);
+      body+=`<tr data-id="${r.id}" class="${r.is_default?'is-default':''} ${hidden?'row-hidden':''}">`;
+      body+=`<td><button class="eye-btn p-eye" title="${hidden?'복사 포함':'복사 제외'}">${hidden?'🙈':'👁'}</button></td>`;
       cols.forEach(key=>{ body+=`<td>${PERF_COLS[key].cell(r)}</td>`; });
       body+=`<td><div class="row-actions">
         <button class="icon-btn edit p-edit" title="수정">✎</button>
@@ -679,6 +698,12 @@ function renderPerf(){
   });
 
   wrap.innerHTML=`<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+
+  wrap.querySelectorAll('.p-eye').forEach(b=>b.addEventListener('click',e=>{
+    const id=+e.target.closest('tr').dataset.id;
+    if(pHidden.has(id)) pHidden.delete(id); else pHidden.add(id);
+    renderPerf();
+  }));
 
   wrap.querySelectorAll('.p-edit').forEach(b=>b.addEventListener('click',e=>{ pEditingId=+e.target.closest('tr').dataset.id; renderPerf(); }));
   wrap.querySelectorAll('.pe-cancel').forEach(b=>b.addEventListener('click',()=>{ pEditingId=null; renderPerf(); }));
@@ -768,14 +793,15 @@ function perfPlain(r, key){
   }
 }
 $('#p-copy-btn').addEventListener('click',()=>{
-  if(!pVisible.length){ toast('복사할 데이터가 없습니다',true); return; }
+  const rows=pVisible.filter(r=>!pHidden.has(r.id));
+  if(!rows.length){ toast('복사할 데이터가 없습니다',true); return; }
   const cols=pColOrder.filter(k=>pCopyCols[k]);   // 켠 열만, 현재 순서대로
   if(!cols.length){ toast('복사할 열이 없습니다. 복사 열 선택을 확인하세요.',true); return; }
   const clean=v=>String(v).replace(/[\t\n\r]+/g,' ').trim();
-  const matrix=pVisible.map(r=>cols.map(k=>clean(perfPlain(r,k))));
+  const matrix=rows.map(r=>cols.map(k=>clean(perfPlain(r,k))));
   const text=matrix.map(row=>row.join('\t')).join('\n');
   const html=rowsToHtmlTable(matrix);
-  copyText(text, $('#p-copy-btn'), `${pVisible.length}건 복사됨 ✓`, '복사하기', html);
+  copyText(text, $('#p-copy-btn'), `${rows.length}건 복사됨 ✓`, '복사하기', html);
 });
 
 /* ============ 공용 수정/삭제 ============ */
