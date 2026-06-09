@@ -1,5 +1,5 @@
 // /api/history  ->  목록 조회(GET) / 신규 생성(POST)
-import { normalizeYMD, normalizeKeywords, json } from "../_lib.js";
+import { normalizeYMD, normalizeKeywords, normalizeAmount, json } from "../_lib.js";
 
 export async function onRequestGet({ env }) {
   try {
@@ -26,7 +26,7 @@ export async function onRequestPost({ request, env }) {
     const endYMD = normalizeYMD(body.time_end || "");
     const keywords = normalizeKeywords(body.keywords || "");
     const detail = (body.detail || "").trim();
-    const amount = (body.amount || "").trim();
+    const amount = normalizeAmount(body.amount || "");
     const client = (body.client || "").trim();
     const isDefault = body.is_default ? 1 : 0;
     const now = Date.now();
